@@ -24,7 +24,7 @@ Three bottlenecks kill velocity:
 
 ## The Solution
 
-This project lets PMs **invoke AI agents directly from Notion** to run the entire product discovery loop — prototype, demo, interview, analyze — without developer involvement and without leaving Notion.
+This project lets PMs **invoke AI agents directly from Notion** to run the entire product discovery loop — prototype, demo, collect feedback, analyze — without developer involvement and without leaving Notion.
 
 ```
 PM writes user story in Notion
@@ -47,12 +47,12 @@ Phase 1: Prototype          Mock Agent → clickable prototype in 5 min
 Phase 2: Demo & Collect     Demo Deck Agent → Notion page customers navigate + submit feedback
 Phase 3: Analyze            Insight Agent → synthesize feedback + existing customer data
 Phase 4: Decide             PM reviews synthesis → proceed / pivot / dig deeper
-Phase 5: Build              Code Agent → GitHub PR from validated story
+Phase 5: Build              Code Agent → implementation draft as GitHub PR
 ```
 
 **Time from idea to validated concept: 3-5 days instead of 1-2 months.**
 
-The developer enters at Phase 5 — reviewing code for a feature already validated with real customers.
+The developer enters at Phase 5 — reviewing an implementation draft for a feature already validated with real customers.
 
 ## Agent Inventory
 
@@ -68,7 +68,7 @@ The developer enters at Phase 5 — reviewing code for a feature already validat
 
 ### Delivery Agents (developer reviews output)
 
-**Code Agent** — Generates implementation code from a validated user story. Creates a GitHub pull request with story context and a human-readable summary posted back to Notion.
+**Code Agent** — Generates an implementation draft from a validated user story. Creates a GitHub pull request for developer review, with story context and a human-readable summary posted back to Notion.
 
 ## Who This Helps
 
@@ -79,7 +79,7 @@ The developer enters at Phase 5 — reviewing code for a feature already validat
 - Generate a clickable prototype in 5 minutes — no developer needed
 - Send a Demo Deck to 10 customers simultaneously — feedback collected as structured Notion data
 - Insight Agent cross-references demo feedback with 6 months of support tickets you never had time to analyze
-- When the story is validated, trigger the Code Agent for production code
+- When the story is validated, trigger the Code Agent for an implementation draft — the developer reviews and refines
 
 ### Development Team Lead
 

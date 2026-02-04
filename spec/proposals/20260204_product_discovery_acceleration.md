@@ -12,7 +12,7 @@ Our competitive analysis (20260204_notion_mcp_competitive_analysis.md) establish
 
 The Mock Agent proposal pushes this further: **what if the PM doesn't need a developer at all?**
 
-The current user stories (US-001 through US-008) focus on the **delivery** phase — generating production-quality code that developers review and ship. But the PM's most time-consuming bottleneck isn't delivery. It's **discovery**: the cycle between "I have an idea" and "I've validated it with real users."
+The current user stories (US-001 through US-008) focus on the **delivery** phase — generating implementation drafts that developers review and refine. But the PM's most time-consuming bottleneck isn't delivery. It's **discovery**: the cycle between "I have an idea" and "I've validated it with real users."
 
 ### The Discovery Bottleneck Today
 
@@ -49,7 +49,7 @@ Total cycle time: 2 hours per iteration
 5 iterations in 2 days instead of 2 months
 ```
 
-Key property of the Mock Agent: **the quality bar is "good enough to show users," not "production-ready."** This means:
+Key property of the Mock Agent: **the quality bar is "good enough to show users," not "ready for developer review."** This means:
 
 - No developer review needed (throwaway by design)
 - Simpler agent output (HTML/CSS prototype, not full-stack application)
@@ -84,9 +84,9 @@ The Mock Agent alone is valuable, but the real killer is a **complete discovery 
 
 | Dimension | Code Agent (US-001) | Mock Agent |
 |-----------|-------------------|------------|
-| Purpose | Production code delivery | User interview prototype |
+| Purpose | Implementation draft for developer review | User interview prototype |
 | Output | GitHub PR | Hosted URL |
-| Quality bar | Production-ready | Visually convincing |
+| Quality bar | Developer-reviewable | Visually convincing |
 | Developer review | Required | Not needed |
 | Lifecycle | Permanent (merged to main) | Disposable (auto-expire after 7 days) |
 | Complexity | Full-stack | Frontend-only |
@@ -177,7 +177,7 @@ The agent leverages **Notion MCP** to extract content from any designated Notion
 
 **Why this matters**: This is the classic lean startup "fake door test." Before building anything, test whether users even want the feature. A 5% click-through rate means interest; 0.1% means the PM should reconsider.
 
-**PM value**: "I can test market demand for a feature before anyone writes a single line of production code."
+**PM value**: "I can test market demand for a feature before anyone writes a single line of code."
 
 ## The Complete Discovery Loop
 
@@ -210,8 +210,8 @@ Phase 4: Refine
 
 Phase 5: Build (existing US-001 + US-002)
     PM triggers Code Agent with validated, user-tested story
-        → Production code generated with high confidence
-        → Developer reviews code that solves a proven problem
+        → Implementation draft generated with high confidence
+        → Developer reviews and refines code that solves a proven problem
 ```
 
 **Total time from idea to validated concept: 3-5 days instead of 1-2 months.**
