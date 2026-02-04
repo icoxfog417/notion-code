@@ -2,7 +2,7 @@
 
 **Date**: 2026-02-04
 **Author**: Claude Agent
-**Status**: Proposed
+**Status**: Proposed (Revised 2026-02-04 — Demo Deck Agent, A/B Test Agent, refined positioning)
 
 ## Background
 
@@ -94,52 +94,73 @@ The Mock Agent alone is valuable, but the real killer is a **complete discovery 
 
 **PM value**: "I can show users a working prototype 10 minutes after writing the story. No developer needed."
 
-### Agent 2: User Interview Agent (Interview Preparation)
+### Agent 2: Demo Deck Agent (Customer Demo & Feedback Collection)
 
-**Trigger**: PM writes user story + selects "Prepare Interview"
-**Output**: Structured interview kit posted to a Notion sub-page
+**Trigger**: PM writes user story + selects "Generate Demo Deck"
+**Output**: A complete demo experience in Notion — presentation, prototype embed, and feedback capture — all in one place
 
 **What it generates**:
-- Interview script with open-ended questions tailored to the user story
-- Scenario walkthrough guide ("Ask the user to complete this task using the prototype")
-- Observation checklist ("Watch for: confusion at step 3, time to complete, verbal reactions")
-- Hypothesis statement ("We believe users will prefer approach X because Y. We'll know we're wrong if Z.")
-- Feedback capture template (Notion database for structured notes per interview)
+- **Explain**: Notion page sequence that walks the customer through the problem statement, proposed solution, and value proposition — structured as a presentation deck the PM can share-screen or send as a link
+- **Show**: Embedded prototype link (from Mock Agent) with guided scenario instructions ("Try adding an item to your cart, then check out")
+- **Collect**: Structured feedback form as a Notion database — pre-populated with key questions, rating scales, and open-ended fields the customer fills in directly
 
-**Why this matters**: Most PMs don't have formal UX research training. They know they should interview users but aren't sure what to ask. The Interview Agent provides structure that turns a casual conversation into actionable research.
+**The key insight**: The entire customer interview happens **in Notion**. The PM shares a Notion page link with the customer. The customer reads the explanation, clicks through the prototype, and submits structured feedback — all without a meeting. Synchronous interviews still work (PM shares screen and walks through the deck), but asynchronous validation is now possible too.
 
-**PM value**: "I have a professional interview script 5 minutes after writing the story. I know exactly what to observe."
+**Why this is different from a simple interview script**:
+
+| Dimension | Interview Script (old) | Demo Deck (new) |
+|-----------|----------------------|-----------------|
+| Format | Text document PM reads from | Interactive Notion experience customer navigates |
+| Customer interaction | Requires live meeting | Works async (customer self-serves) or sync (PM presents) |
+| Feedback capture | PM takes notes manually | Customer fills structured Notion database directly |
+| Prototype integration | Separate link | Embedded in the flow |
+| Scalability | 1 interview at a time | Send to 10 customers simultaneously |
+
+**PM value**: "I send a Notion link to 10 customers. They experience the demo and submit feedback at their own pace. I collect structured data without scheduling 10 meetings."
 
 ### Agent 3: Insight Agent (Feedback Synthesizer)
 
-**Trigger**: PM has conducted 3-5 interviews and captured notes in the feedback database + selects "Synthesize Feedback"
+**Trigger**: PM selects "Synthesize Feedback" when feedback data exists (demo deck responses, customer tickets, or any Notion database)
 **Output**: Insight summary posted to the user story's Notion page
 
 **What it generates**:
-- Pattern analysis across interviews ("4 of 5 users struggled with the navigation between steps")
+- Pattern analysis across all data sources — demo deck feedback, customer tickets, support conversations, survey responses
+- Cross-reference with existing Notion databases ("3 of 5 demo respondents raised the same issue that appears in 12 open support tickets")
 - Verbatim quotes organized by theme
 - Confidence assessment ("High confidence: users want X. Low confidence: unclear if Y matters")
 - Suggested story refinements based on feedback patterns
-- Decision recommendation ("Proceed to build" / "Pivot: users want Z instead" / "Need more interviews")
+- Decision recommendation ("Proceed to build" / "Pivot: users want Z instead" / "Need more data")
 
-**Why this matters**: Synthesizing qualitative research is time-consuming and prone to confirmation bias. The PM tends to remember the most recent or most dramatic feedback, not the most representative. The Insight Agent provides systematic analysis.
+**Data sources** (the agent reads from any Notion database the PM designates):
+- Demo Deck feedback database (structured responses from Agent 2)
+- Customer support ticket databases
+- Feature request databases
+- NPS/survey result databases
+- Sales call notes
+- Any table-form data in Notion
 
-**PM value**: "I have an objective synthesis of all user interviews in 5 minutes. I can confidently decide whether to proceed, pivot, or dig deeper."
+**Why this matters**: PMs already have abundant customer data scattered across Notion databases — support tickets, feature requests, sales notes. The Insight Agent doesn't just analyze new interview feedback; it **connects new discovery data with existing customer signals**. This turns fragmented data into a coherent picture.
 
-### Agent 4: Variant Agent (Alternative Approach Generator)
+The agent leverages **Notion MCP** to extract content from any designated Notion database, giving it access to the full breadth of customer data without manual export or copy-paste.
 
-**Trigger**: PM writes user story + selects "Generate Variants"
-**Output**: 3 alternative approaches posted to Notion, each with a prototype URL
+**PM value**: "The agent connects my demo feedback with 6 months of customer tickets I never had time to cross-reference. I can see whether this idea solves a real problem at scale, not just for 5 interviewees."
+
+### Agent 4: A/B Test Agent (Alternative Approach Generator)
+
+**Trigger**: PM writes user story + selects "Generate A/B Test"
+**Output**: 2-3 alternative approaches posted to Notion, each with its own Demo Deck and prototype URL
 
 **What it generates**:
-- 3 distinct approaches to solving the same user problem
+- 2-3 distinct approaches to solving the same user problem
 - Each approach has a brief rationale ("This approach prioritizes simplicity" / "This approach prioritizes power users" / "This approach matches competitor X's pattern")
-- Each approach has a deployable prototype
+- Each approach has a deployable prototype (via Mock Agent)
+- Each approach has a Demo Deck (via Demo Deck Agent) — ready to send to customers
 - Comparison matrix: trade-offs between approaches
+- Unified feedback database that tracks which variant each respondent experienced
 
-**Why this matters**: PMs tend to converge on their first idea. The Variant Agent forces divergent thinking by generating alternatives the PM didn't consider. Combined with user interviews, this enables A/B prototype testing.
+**Why this matters**: PMs tend to converge on their first idea. The A/B Test Agent forces divergent thinking by generating alternatives the PM didn't consider, and makes it effortless to test them. Send variant A's Demo Deck to 5 customers and variant B's to 5 others. The Insight Agent then compares feedback across variants.
 
-**PM value**: "I can test 3 different approaches with users in a single afternoon instead of committing to one approach and discovering it's wrong after development."
+**PM value**: "I A/B test 3 different approaches with real customers in a single day, all from Notion. I pick the winner based on data, not opinion."
 
 ### Agent 5: Landing Page Agent (Demand Validation)
 
@@ -160,28 +181,32 @@ The Mock Agent alone is valuable, but the real killer is a **complete discovery 
 
 ## The Complete Discovery Loop
 
-These 5 agents form a complete product discovery pipeline:
+These agents form a complete product discovery pipeline — all in Notion:
 
 ```
 Phase 1: Diverge
     PM writes user story
-        → Variant Agent generates 3 approaches (3 prototypes)
-        → Landing Page Agent tests demand for each variant
+        → A/B Test Agent generates 2-3 approaches
+        → Each approach gets a Mock prototype + Demo Deck
+        → (Optional) Landing Page Agent tests demand
 
 Phase 2: Test
-    PM picks top 2 variants based on landing page data
-        → Interview Agent prepares interview scripts
-        → PM conducts user interviews with prototypes
+    PM sends Demo Deck links to customers
+        → Customers experience the demo in Notion (async or sync)
+        → Customers submit structured feedback directly in Notion
+        → PM can send to 10+ customers in parallel
 
 Phase 3: Converge
-    PM captures interview notes in Notion
-        → Insight Agent synthesizes feedback
-        → PM decides: proceed / pivot / dig deeper
+    PM triggers Insight Agent
+        → Synthesizes demo feedback + existing customer tickets + support data
+        → Cross-references new findings with existing Notion databases
+        → Recommends: proceed / pivot / need more data
 
 Phase 4: Refine
     PM updates user story based on validated insights
         → Mock Agent generates refined prototype
-        → One more round of interviews to confirm
+        → Demo Deck Agent generates updated demo
+        → One more round with customers to confirm
 
 Phase 5: Build (existing US-001 + US-002)
     PM triggers Code Agent with validated, user-tested story
@@ -192,6 +217,19 @@ Phase 5: Build (existing US-001 + US-002)
 **Total time from idea to validated concept: 3-5 days instead of 1-2 months.**
 
 The developer enters the picture only at Phase 5, reviewing code for a feature that's already been validated with real users. This is the most efficient use of developer time possible — they never build something users don't want.
+
+### The Notion-Native Advantage
+
+The entire discovery loop happens in Notion:
+- PM **creates** the story in Notion
+- Agents **generate** demos and decks in Notion
+- Customers **experience** the demo in Notion
+- Customers **submit feedback** into Notion databases
+- Insight Agent **reads** feedback + existing data from Notion (via Notion MCP)
+- Insight Agent **posts** synthesis back to Notion
+- PM **decides** and triggers Code Agent — from Notion
+
+No external survey tools. No separate interview recording platforms. No spreadsheets for data synthesis. Notion is the single environment for the entire discovery process.
 
 ## Why This Is Our Killer Differentiator
 
@@ -220,6 +258,14 @@ After:   "Notion to Validated Product" (discovery + delivery acceleration)
 
 This positions our solution not as a coding tool (crowded market, Notion MCP competes) but as a **product discovery platform** (empty market, no direct competitor).
 
+### Fundamental Value and Implementation
+
+**Fundamental value**: Accelerate product discovery to generate promising user stories, then pass validated stories to developers for implementation.
+
+**Fundamental implementation**: "Invoke Agent from Notion" — a secure and scalable infrastructure on AWS (AgentCore + Lambda + SQS) that lets any Notion action trigger any agent type. The agents leverage Notion MCP to extract abundant content from the workspace.
+
+This separation — value (discovery acceleration) and implementation (invoke from Notion) — means every new agent type we add multiplies value without changing the underlying infrastructure.
+
 ## Impact on Requirements
 
 ### New User Stories
@@ -236,25 +282,27 @@ Acceptance Criteria:
 - [ ] The prototype auto-expires after a configurable period (default: 7 days)
 - [ ] Prototype uses realistic sample data, not placeholder text
 
-**US-010: Prepare User Interview from User Story**
+**US-010: Generate Demo Deck for Customer Validation**
 
-**As a** Product Owner, **I want to** generate an interview script and observation checklist from a user story, **so that** I can conduct structured user interviews without UX research expertise.
-
-Acceptance Criteria:
-- [ ] A "Prepare Interview" action is available on user story pages in Notion
-- [ ] The agent generates an interview script with open-ended questions tailored to the story
-- [ ] A scenario walkthrough guide is included for use with the prototype
-- [ ] An observation checklist is generated to capture structured notes
-- [ ] A feedback capture database is created in Notion for interview notes
-- [ ] All materials are posted to a sub-page of the user story
-
-**US-011: Synthesize User Interview Feedback**
-
-**As a** Product Owner, **I want to** synthesize feedback from multiple user interviews into patterns and recommendations, **so that** I can make evidence-based decisions about whether to proceed, pivot, or dig deeper.
+**As a** Product Owner, **I want to** generate a complete demo experience (explanation, prototype, feedback form) as a Notion page I can share with customers, **so that** I can validate ideas with customers asynchronously without scheduling meetings or asking developers for help.
 
 Acceptance Criteria:
-- [ ] A "Synthesize Feedback" action is available when 2+ interview notes exist in the feedback database
-- [ ] The agent identifies patterns across interviews (common themes, recurring pain points)
+- [ ] A "Generate Demo Deck" action is available on user story pages in Notion
+- [ ] The agent generates a Notion page sequence: problem statement → solution explanation → embedded prototype link → guided scenario → feedback form
+- [ ] A structured feedback database is created in Notion with pre-populated questions, rating scales, and open-ended fields
+- [ ] The customer can navigate the entire experience (read, demo, feedback) by following a single Notion link
+- [ ] The Demo Deck works both for async (customer self-serves) and sync (PM presents) use
+- [ ] All materials are posted as sub-pages of the user story
+
+**US-011: Synthesize Customer Feedback with Existing Data**
+
+**As a** Product Owner, **I want to** synthesize feedback from demo deck responses and cross-reference it with existing customer data (support tickets, feature requests, sales notes) in Notion, **so that** I can make evidence-based decisions grounded in both new discovery data and historical customer signals.
+
+Acceptance Criteria:
+- [ ] A "Synthesize Feedback" action is available when feedback data exists in designated Notion databases
+- [ ] The agent reads from multiple Notion databases: demo deck responses, customer tickets, feature requests, and any PM-designated data source
+- [ ] The agent cross-references new feedback with existing data ("this issue matches 12 open support tickets")
+- [ ] Pattern analysis identifies common themes across all data sources
 - [ ] Key verbatim quotes are organized by theme
 - [ ] A confidence assessment is provided for each finding
 - [ ] A decision recommendation is provided (proceed / pivot / need more data)
@@ -262,7 +310,7 @@ Acceptance Criteria:
 
 ### Optional (Phase 2 Discovery Agents)
 
-- **US-012: Generate Prototype Variants** — Multiple approaches to the same user problem
+- **US-012: A/B Test with Multiple Approaches** — Generate 2-3 variants, each with its own Mock prototype and Demo Deck, with unified feedback tracking
 - **US-013: Generate Landing Page for Demand Testing** — Lean startup fake door test
 
 ## Impact on Sprint Plan
@@ -288,11 +336,11 @@ Both stories share the same pipeline infrastructure (webhook → SQS → AgentCo
 
 Building both in Sprint 1 means we build the pipeline once and demonstrate two agent types — one for delivery, one for discovery. This is a much more compelling demo than code generation alone.
 
-**Sprint 2: US-002 (Code feedback) + US-010 (Interview prep) + US-011 (Insight synthesis)**
+**Sprint 2: US-002 (Code feedback) + US-010 (Demo Deck) + US-011 (Insight synthesis)**
 
 All three stories are about feedback loops. US-002 closes the code iteration loop. US-010 + US-011 close the discovery iteration loop. Building them together creates the complete "Notion to Validated Product" workflow.
 
-US-010 and US-011 are architecturally simpler than US-002 — their output is Notion pages (text), not code. The agents are text-generation agents, not coding agents. Lower implementation cost.
+US-010 creates the Demo Deck experience in Notion — the agent generates Notion pages and databases, which is architecturally simpler than code generation. US-011 reads from Notion databases (via Notion MCP) and writes synthesis back to Notion. Both are text-generation agents with Notion as both input and output. Lower implementation cost than code agents.
 
 **Sprint 3 (was Sprint 2): US-004 + US-003**
 
@@ -307,10 +355,12 @@ Workshop readiness. Now the workshop demonstrates both discovery and delivery fl
 | Story | Agent Type | Output Target | New Infrastructure | Cost |
 |-------|-----------|--------------|-------------------|------|
 | US-009 | Mock Agent (frontend-only code gen) | S3 static hosting + CloudFront URL | S3 bucket, CloudFront distribution, TTL-based cleanup | Medium |
-| US-010 | Interview Agent (text generation) | Notion sub-page | None (uses existing Notion Writer) | Low |
-| US-011 | Insight Agent (text analysis) | Notion page update | None (uses existing Notion Writer + reads feedback DB) | Low |
+| US-010 | Demo Deck Agent (Notion page + DB generation) | Notion sub-pages + feedback DB | None (uses Notion Writer + Notion API for page/DB creation) | Low-Medium |
+| US-011 | Insight Agent (multi-source analysis) | Notion page update | Notion MCP integration for reading multiple databases | Medium |
 
-US-010 and US-011 are **low cost** because they are text-in, text-out agents that write back to Notion. No new infrastructure — they use the same pipeline as US-001/US-002, just with different agent prompts and Notion as the output target instead of GitHub.
+US-010 is **low-medium cost** because it generates Notion pages and databases (no external hosting), but the page structure is richer than simple text — it creates a multi-page experience with an embedded feedback database.
+
+US-011 is **medium cost** (upgraded from low) because it now reads from multiple Notion databases via Notion MCP, requiring the agent to handle diverse data schemas and cross-reference across sources. The analysis is more sophisticated than single-source synthesis.
 
 US-009 is **medium cost** because it requires S3 static hosting with auto-expiry, but the agent pipeline (webhook → SQS → orchestrator → AgentCore) is shared with US-001.
 

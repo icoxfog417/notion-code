@@ -84,9 +84,9 @@
 
 ## Sprint 2: Feedback Loops — Code Iteration + Discovery (US-002 + US-010 + US-011)
 
-**Goal**: Close both feedback loops — code iteration for delivery and interview preparation + insight synthesis for discovery
-**Deliverable**: PM can iterate on code output via Notion feedback. PM can generate interview scripts and synthesize interview results — all from Notion.
-**User Stories**: US-002 (Review & Feedback), US-010 (Prepare User Interview), US-011 (Synthesize Feedback)
+**Goal**: Close both feedback loops — code iteration for delivery, and Demo Deck + Insight synthesis for discovery
+**Deliverable**: PM can iterate on code output via Notion feedback. PM can generate Demo Decks for customer validation and synthesize feedback with existing customer data — all in Notion.
+**User Stories**: US-002 (Review & Feedback), US-010 (Demo Deck), US-011 (Insight Synthesis)
 
 ### Code Feedback Loop Tasks (US-002)
 
@@ -96,19 +96,21 @@
 - ⬜ Display iteration history on Notion page
 - ⬜ End-to-end test: story → PR → feedback in Notion → re-generation → updated PR
 
-### Interview Preparation Tasks (US-010)
+### Demo Deck Agent Tasks (US-010)
 
-- ⬜ Define Interview Agent system prompt (generate interview script, observation checklist, scenario guide)
-- ⬜ Implement Notion sub-page creation for interview materials
-- ⬜ Create feedback capture database template in Notion
-- ⬜ End-to-end test: story → "Prepare Interview" → interview kit sub-page + feedback DB
+- ⬜ Define Demo Deck Agent system prompt (generate explanation pages, embed prototype link, create feedback form)
+- ⬜ Implement Notion multi-page creation (problem statement → solution explanation → demo scenario → feedback form)
+- ⬜ Create structured feedback database with pre-populated questions, rating scales, and open-ended fields
+- ⬜ Integrate with Mock Agent output (embed prototype URL in guided scenario section)
+- ⬜ End-to-end test: story → "Generate Demo Deck" → Notion page sequence + feedback DB → customer submits feedback via Notion link
 
-### Insight Synthesis Tasks (US-011)
+### Insight Agent Tasks (US-011)
 
-- ⬜ Define Insight Agent system prompt (pattern analysis, quote extraction, confidence scoring, recommendations)
-- ⬜ Implement feedback database reader (read interview notes from Notion DB)
-- ⬜ Post synthesis results to user story page
-- ⬜ End-to-end test: populate feedback DB → "Synthesize" → insight summary on story page
+- ⬜ Define Insight Agent system prompt (multi-source analysis, cross-referencing, confidence scoring, recommendations)
+- ⬜ Implement Notion MCP integration for reading from multiple designated databases (demo feedback, customer tickets, feature requests, sales notes)
+- ⬜ Implement cross-reference logic (connect new demo feedback with existing customer signals)
+- ⬜ Post synthesis results to user story page (patterns, quotes, confidence, proceed/pivot recommendation)
+- ⬜ End-to-end test: demo feedback DB + customer ticket DB → "Synthesize" → cross-referenced insight summary
 
 ## Sprint 3: Team Governance (US-004 + US-003)
 
@@ -157,7 +159,7 @@
 
 Items not yet scheduled for a sprint:
 
-- ⬜ Generate prototype variants: 3 alternative approaches to same user problem (US-012)
+- ⬜ A/B Test Agent: generate 2-3 variant approaches, each with Mock prototype + Demo Deck (US-012)
 - ⬜ Generate landing page for demand testing (US-013)
 - ⬜ Agent chaining: Spec → Code → Review workflows (US-008)
 - ⬜ Enriched PR descriptions with full Notion context (US-005, descoped — Notion MCP covers developer context needs)
@@ -185,9 +187,9 @@ Items not yet scheduled for a sprint:
 | US-004 | Sprint 2 | **Sprint 3** | Shifted one sprint — discovery agents take priority |
 | US-006 | Sprint 3 | **Sprint 4** | Shifted one sprint |
 | US-007 | Sprint 3 | **Sprint 4** | Shifted one sprint |
-| US-009 (new) | — | **Sprint 1** | Mock Agent: generate clickable prototypes for user interviews |
-| US-010 (new) | — | **Sprint 2** | Interview Agent: generate interview scripts and observation checklists |
-| US-011 (new) | — | **Sprint 2** | Insight Agent: synthesize interview feedback into patterns |
+| US-009 (new) | — | **Sprint 1** | Mock Agent: generate clickable prototypes for customer validation |
+| US-010 (new) | — | **Sprint 2** | Demo Deck Agent: Notion-native demo experience (explain, show, collect feedback) |
+| US-011 (new) | — | **Sprint 2** | Insight Agent: synthesize demo feedback + existing customer data (via Notion MCP) |
 
 #### 2026-02-04: Notion MCP Competitive Analysis (proposal: 20260204_notion_mcp_competitive_analysis.md)
 
@@ -205,8 +207,9 @@ Items not yet scheduled for a sprint:
 |-------|------|-------|--------|--------|
 | Code Agent | Code generation | User story + context | GitHub PR | 1 |
 | Mock Agent | Prototype generation | User story | Hosted URL (S3/CloudFront) | 1 |
-| Interview Agent | Text generation | User story | Notion sub-page (interview kit) | 2 |
-| Insight Agent | Text analysis | Interview feedback DB | Notion page update (synthesis) | 2 |
+| Demo Deck Agent | Notion page + DB generation | User story + prototype URL | Notion page sequence + feedback DB | 2 |
+| Insight Agent | Multi-source analysis (via Notion MCP) | Feedback DB + customer tickets + any Notion DB | Notion page update (cross-referenced synthesis) | 2 |
+| A/B Test Agent | Multi-variant generation | User story | 2-3 variants × (Mock + Demo Deck) + unified feedback DB | Backlog |
 | Spec Agent | Text generation | User story | Technical spec document | Backlog |
 | Review Agent | Code analysis | Generated code + criteria | Review comments | Backlog |
 

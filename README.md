@@ -1,70 +1,110 @@
 # Notion-AWS Integration for AI-Driven Development Lifecycle
 
-Turn Notion user stories into working code — without leaving Notion.
+Accelerate product discovery — from idea to validated user story — without leaving Notion.
 
 ## The Problem
 
-Product development teams in AI-driven development workshops face three interconnected problems:
+Product managers spend **1-2 months** to validate a single feature idea:
 
-**Context Fragmentation** — User stories, acceptance criteria, and design decisions created in Notion must be manually transferred to development environments. Each transfer risks losing nuance, relationships between stories, and team discussion context.
+```
+PM has idea → writes story (30 min)
+    → asks developer to build prototype (wait 1-3 days)
+    → developer builds throwaway prototype (1-2 days)
+    → PM schedules customer interviews (wait 2-5 days)
+    → PM conducts interviews (1 hour each)
+    → PM synthesizes feedback manually (2-4 hours)
+    → PM refines story and repeats from the top
+```
 
-**Platform Switching Overhead** — Teams context-switch between Notion (collaboration), IDE (development), and git (version control). Each switch requires mental model changes and operational steps that break flow.
+Three bottlenecks kill velocity:
 
-**AI Capability Gap** — Notion AI handles text generation well but cannot perform coding, multi-session development, or interact with development tools. Teams must leave Notion to leverage AI coding capabilities, fragmenting their workflow.
+1. **Developer dependency** — The PM competes for developer time to build something that will be thrown away. The developer is busy with production work.
+2. **Interview logistics** — Scheduling, conducting, and synthesizing customer interviews is manual and slow. Feedback lives in notes, not structured data.
+3. **Data fragmentation** — Customer signals (support tickets, feature requests, sales notes, interview feedback) are scattered across Notion databases. Nobody has time to cross-reference them.
 
 ## The Solution
 
-This project integrates **Notion** with **Amazon Bedrock AgentCore** so that teams can invoke AI agent workloads directly from Notion. Notion becomes the single pane of glass for product decisions. AWS handles computation invisibly behind the scenes.
+This project lets PMs **invoke AI agents directly from Notion** to run the entire product discovery loop — prototype, demo, interview, analyze — without developer involvement and without leaving Notion.
 
 ```
-Notion (User Stories & Epics)
-    ↓ Trigger (property change / button)
-AWS Lambda (Webhook Handler)
-    ↓ SQS
-Amazon Bedrock AgentCore
-    ├── Claude (via Amazon Bedrock) → Code Generation
-    ├── Amazon Bedrock Knowledge Bases ← Notion Context
-    └── Results → GitHub PR + Notion Update
+PM writes user story in Notion
+    ↓ Trigger (2 clicks)
+AWS (Lambda → SQS → Bedrock AgentCore)
+    ├── Mock Agent      → Clickable prototype at a shareable URL
+    ├── Demo Deck Agent → Notion page: explanation + demo + feedback form
+    ├── Insight Agent   → Synthesis of feedback + existing customer data
+    └── Code Agent      → GitHub PR (when story is validated)
 ```
 
-The core value proposition: **a Product Owner writes a user story in Notion and gets a pull request with working code, without leaving Notion.**
+**Fundamental value**: Accelerate product discovery to generate promising user stories, then pass validated stories to developers.
+
+**Fundamental implementation**: "Invoke Agent from Notion" — a secure and scalable infrastructure on AWS that lets any Notion action trigger any agent type. Agents leverage [Notion MCP](https://developers.notion.com/docs/mcp) to extract abundant content from the workspace.
+
+## The Discovery Loop
+
+```
+Phase 1: Prototype          Mock Agent → clickable prototype in 5 min
+Phase 2: Demo & Collect     Demo Deck Agent → Notion page customers navigate + submit feedback
+Phase 3: Analyze            Insight Agent → synthesize feedback + existing customer data
+Phase 4: Decide             PM reviews synthesis → proceed / pivot / dig deeper
+Phase 5: Build              Code Agent → GitHub PR from validated story
+```
+
+**Time from idea to validated concept: 3-5 days instead of 1-2 months.**
+
+The developer enters at Phase 5 — reviewing code for a feature already validated with real customers.
+
+## Agent Inventory
+
+### Discovery Agents (PM-facing, no developer needed)
+
+**Mock Agent** — Generates a clickable HTML/CSS/JS prototype from a user story. Deployed to a shareable URL. Auto-expires after 7 days. The PM shows it to customers 10 minutes after writing the story.
+
+**Demo Deck Agent** — Generates a complete demo experience as a Notion page: problem explanation, embedded prototype link with guided scenario, and structured feedback form. The customer navigates the explanation, tries the prototype, and submits feedback — all via a single Notion link. Works async (customer self-serves) or sync (PM presents).
+
+**Insight Agent** — Reads feedback from Demo Deck responses AND existing Notion databases (customer tickets, feature requests, sales notes, NPS data). Cross-references new discovery data with historical signals. Produces pattern analysis, confidence scoring, and a proceed/pivot recommendation. Leverages Notion MCP for broad data access.
+
+**A/B Test Agent** *(backlog)* — Generates 2-3 variant approaches to the same user problem, each with its own Mock prototype and Demo Deck. Unified feedback database tracks which variant each respondent experienced.
+
+### Delivery Agents (developer reviews output)
+
+**Code Agent** — Generates implementation code from a validated user story. Creates a GitHub pull request with story context and a human-readable summary posted back to Notion.
 
 ## Who This Helps
 
-### Product Owner
+### Product Manager
 
-> *"I write clear user stories but then have to wait for developers to manually translate them into specs and code. I want to see an MVP faster."*
+> *"I have ideas but validating them takes weeks because I depend on developers for prototypes and on my own time for interview synthesis."*
 
-- Stay entirely in Notion. Write a user story, trigger code generation with 2 clicks.
-- Review AI-generated output as a plain-language summary posted to the Notion page.
-- Mark output as "Approved" or "Needs Changes" with feedback — a new agent run triggers automatically.
-- No IDE, no git, no waiting for a developer to pick up the ticket.
+- Generate a clickable prototype in 5 minutes — no developer needed
+- Send a Demo Deck to 10 customers simultaneously — feedback collected as structured Notion data
+- Insight Agent cross-references demo feedback with 6 months of support tickets you never had time to analyze
+- When the story is validated, trigger the Code Agent for production code
 
 ### Development Team Lead
 
-> *"I spend too much time translating Notion stories into technical specs and ensuring nothing is lost in translation."*
+> *"Half the features we build don't land well with users. I wish the PM had validated them more before asking us to implement."*
 
-- The Spec Agent automates the translation from user story to technical specification.
-- Configure project-level constraints (target repo, coding standards, frameworks) once in a Notion config page. Every agent invocation respects those settings.
-- Define multi-step workflows (Story → Spec → Code) where each step is reviewable in Notion before the next runs.
-- Monitor all agent executions, costs, and errors from a dashboard database in Notion.
+- PMs arrive with validated, data-backed user stories instead of untested assumptions
+- Monitor all agent executions, costs, and errors from a dashboard in Notion
+- Configure project-level constraints (repo, standards, frameworks) once
+- Developers spend time on features that matter, not throwaway prototypes
 
 ### Developer
 
-> *"I have to dig through Notion pages to find the full context behind a user story, then manually set up my development environment with that context."*
+> *"I spend too much time building prototypes that get thrown away after one customer meeting."*
 
-- Receive GitHub pull requests that already include the original user story, acceptance criteria, and design context.
-- Generated code follows the project's coding standards and repository structure.
-- Focus on high-value review and refinement instead of context gathering and boilerplate.
+- Never build a throwaway prototype again — the Mock Agent handles it
+- When you receive a PR from the Code Agent, the story behind it has been validated with real customers
+- Use [Notion MCP](https://developers.notion.com/docs/mcp) in your IDE to access the same Notion context the agents use
 
 ### Workshop Facilitator
 
-> *"Workshop participants get excited about AI coding but lose momentum when they hit the gap between Notion and their development environment."*
+> *"Participants lose momentum when they hit the gap between Notion and their development tools."*
 
-- Pre-configured workshop environment eliminates setup friction.
-- The full flow (write story → trigger agent → review code) completes within 15 minutes.
-- Participants try the flow with their own user stories immediately.
-- Workshop materials include a setup guide for teams to replicate the environment.
+- Demo the full discovery-to-delivery loop in a single Notion workspace
+- Participants try it with their own stories — everything stays in Notion
+- Pre-configured workshop environment eliminates setup friction
 
 ## Architecture
 
@@ -72,126 +112,93 @@ The core value proposition: **a Product Owner writes a user story in Notion and 
 graph TB
     subgraph Notion["Notion Workspace"]
         US[User Stories DB]
-        CFG[Project Config Page]
-        DASH[Execution Dashboard DB]
-        FB[Feedback & Comments]
+        DD[Demo Decks]
+        FB[Feedback DB]
+        DASH[Execution Dashboard]
+        CFG[Project Config]
+        EXIST[Existing Data: Tickets, Requests, Sales Notes]
     end
 
     subgraph AWS["AWS Cloud"]
-        subgraph Ingestion["Content Ingestion"]
-            WH[Lambda: Webhook Handler]
-            SYNC[Lambda: Content Sync]
-            KB[Bedrock Knowledge Bases]
-        end
-
-        subgraph Orchestration["Agent Orchestration"]
-            ORCH[Lambda: Orchestrator]
-            AC[Bedrock AgentCore]
-            BR[Amazon Bedrock - Claude]
-        end
+        WH[Lambda: Webhook Handler]
+        SQS[SQS: Task Queue]
+        ORCH[Lambda: Orchestrator]
+        AC[Bedrock AgentCore]
+        BR[Amazon Bedrock - Claude]
+        NW[Lambda: Notion Writer]
 
         subgraph Delivery["Output Delivery"]
-            DEL[Lambda: Delivery Handler]
             GH[GitHub API]
-            NW[Lambda: Notion Writer]
+            S3[S3 + CloudFront: Prototype Hosting]
         end
-
-        SQS[SQS: Task Queue]
     end
 
-    US -->|Trigger: property change| WH
-    WH -->|Queue invocation| SQS
-    SQS -->|Process| ORCH
+    MCP[Notion MCP: Content Extraction]
 
-    SYNC -->|Ingest pages| KB
-    US -->|Sync content| SYNC
-    FB -->|Sync feedback| SYNC
-
-    ORCH -->|Invoke agent| AC
+    US -->|Trigger| WH
+    WH --> SQS
+    SQS --> ORCH
+    ORCH -->|Invoke| AC
     AC -->|Call model| BR
-    AC -->|Retrieve context| KB
+    AC -->|Read context| MCP
+    MCP -->|Extract| US
+    MCP -->|Extract| EXIST
+    MCP -->|Extract| FB
 
-    AC -->|Code output| DEL
-    DEL -->|Create PR| GH
-    DEL -->|Post results| NW
-    NW -->|Update status & summary| DASH
+    AC -->|Mock Agent| S3
+    AC -->|Demo Deck & Insight| NW
+    AC -->|Code Agent| GH
+    NW -->|Write| DD
+    NW -->|Write| FB
+    NW -->|Update| DASH
 
     CFG -->|Read settings| ORCH
 ```
-
-## Customer Journey
-
-| Phase | Platform | Actor | Activity |
-|-------|----------|-------|----------|
-| 1. Story Creation | Notion | Product Team | Write user stories, epics, acceptance criteria |
-| 2. Context Sync | AWS | System | Ingest Notion content into Knowledge Bases |
-| 3. Agent Invocation | Notion → AWS | Team Lead / PO | Trigger agent workload from Notion |
-| 4. Implementation | AWS (AgentCore) | AI Agent | Generate specs, code, tests using Claude |
-| 5. Delivery | GitHub + Notion | System | Create PR, post summary back to Notion |
-| 6. Review & Feedback | Notion + GitHub | Team | Review outputs, provide feedback |
-| 7. Iteration | Notion → AWS | Team | Refine stories and re-trigger agents |
 
 ## Technology Stack
 
 | Layer | Technology | Purpose |
 |-------|-----------|---------|
-| Collaboration | Notion | User story management, triggers, result display |
+| Collaboration & Data | Notion | Stories, demo decks, feedback, customer data, results |
+| Content Extraction | Notion MCP | Agents read Notion content (pages, databases, comments) |
 | Webhook Processing | AWS Lambda | Receive and validate Notion triggers |
 | Task Queue | Amazon SQS | Decouple trigger reception from agent execution |
-| Context Storage | Amazon Bedrock Knowledge Bases | Store and retrieve Notion content for agents |
-| Agent Runtime | Amazon Bedrock AgentCore | Serverless execution environment for AI agents |
-| Foundation Model | Amazon Bedrock (Claude) | Code generation, spec generation, review |
-| Code Delivery | GitHub API | Pull request creation and management |
+| Agent Runtime | Amazon Bedrock AgentCore | Serverless agent execution |
+| Foundation Model | Amazon Bedrock (Claude) | All agent intelligence |
+| Prototype Hosting | S3 + CloudFront | Shareable URLs for Mock Agent prototypes |
+| Code Delivery | GitHub API | Pull request creation |
 | Infrastructure | AWS CDK (TypeScript) | Infrastructure as Code |
-
-## Agent Types
-
-The system supports three specialized agents that can be chained into workflows:
-
-- **Spec Agent** — Translates user stories into technical specifications, requirements documents, and task breakdowns.
-- **Code Agent** — Generates implementation code, test files, and PR descriptions from user stories or specs.
-- **Review Agent** — Validates generated code against acceptance criteria and produces review comments.
-
-Predefined workflow templates: `story-to-code`, `story-to-spec-to-code`.
-
-## Project Structure
-
-```
-notion-code/
-├── spec/                 # Specifications
-│   ├── requirements.md   # User personas, features, acceptance criteria
-│   ├── design.md         # Architecture, data models, API contracts
-│   ├── tasks.md          # Sprint-based task tracking
-│   ├── implementation_qa.md
-│   └── proposals/        # Change proposal documents
-├── infra/                # AWS CDK infrastructure
-│   ├── bin/
-│   ├── lib/
-│   └── config/
-├── src/
-│   ├── webhook/          # Notion webhook handler
-│   ├── sync/             # Content sync to Knowledge Base
-│   ├── orchestrator/     # Agent invocation orchestrator
-│   ├── agents/           # Agent definitions (prompts, tools)
-│   ├── delivery/         # Output delivery (GitHub, Notion)
-│   └── shared/           # Shared utilities, types, config
-├── tests/
-├── .sandbox/             # Sandbox experiments
-└── docs/                 # Workshop and adoption guides
-```
 
 ## Project Status
 
-Currently in **Sprint 0 — Feasibility & Specification**. Core specifications are complete. Next steps include sandbox verification of Notion API webhooks, Bedrock AgentCore invocation patterns, and Knowledge Base ingestion.
+Currently in **Sprint 0 — Feasibility & Specification**.
+
+| Sprint | Focus | Key Deliverable |
+|--------|-------|-----------------|
+| 0 (current) | Feasibility | Sandbox verification of Notion API, AgentCore, S3 hosting |
+| 1 | Dual Agent MVP | Code Agent (→ GitHub PR) + Mock Agent (→ prototype URL) |
+| 2 | Feedback Loops | Code iteration + Demo Deck Agent + Insight Agent |
+| 3 | Team Governance | Execution dashboard + project configuration |
+| 4 | Workshop & Scale | Workshop kit + Knowledge Base for large workspaces |
 
 See [spec/tasks.md](spec/tasks.md) for the full task breakdown.
 
+## Why Not Just Use Notion MCP?
+
+[Notion MCP](https://developers.notion.com/docs/mcp) gives developers in IDEs direct access to Notion content. It's the right tool for developers. But it doesn't help PMs — they can't use Cursor or Claude Code to generate prototypes, run demos, or synthesize feedback.
+
+Our project and Notion MCP are complementary:
+- **Notion MCP** = developer-facing, pull-based (developer asks from IDE)
+- **Our project** = PM-facing, push-based (Notion action triggers agent)
+- **Together**: Our agents use Notion MCP internally to read workspace content. Developers use Notion MCP directly in their IDEs.
+
+See [competitive analysis](spec/proposals/20260204_notion_mcp_competitive_analysis.md) for the full comparison.
+
 ## Dependencies
 
-- [Notion API](https://developers.notion.com/) (v2024-02+)
+- [Notion API](https://developers.notion.com/) + [Notion MCP](https://developers.notion.com/docs/mcp)
 - [Amazon Bedrock](https://aws.amazon.com/bedrock/) (Claude model access)
 - [Amazon Bedrock AgentCore](https://aws.amazon.com/bedrock/agentcore/)
-- [Amazon Bedrock Knowledge Bases](https://aws.amazon.com/bedrock/knowledge-bases/)
 - [GitHub API](https://docs.github.com/en/rest)
 
 ## License
