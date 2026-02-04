@@ -1,7 +1,7 @@
 # Implementation Tasks
 
 **Project**: Notion-AWS Integration for AI-Driven Development Lifecycle (AI DLC)
-**Last Updated**: 2026-02-03
+**Last Updated**: 2026-02-04
 **Status**: Sprint 0 - Feasibility & Foundation
 
 ## Task Status Legend
@@ -20,6 +20,8 @@
 - Verify unknowns in `.sandbox/` before production implementation
 - Create proposals before changing spec files
 - Keep tasks small and independently testable
+- Prioritize what Notion MCP cannot provide (see spec/proposals/20260204_notion_mcp_competitive_analysis.md)
+- Prioritize product discovery acceleration (see spec/proposals/20260204_product_discovery_acceleration.md)
 
 ## Sprint 0: Feasibility & Specification
 
@@ -31,72 +33,136 @@
 - ✅ Define requirements specification (requirements.md)
 - ✅ Define high-level architecture (design.md)
 - ✅ Create proposal document (spec/proposals/20260203_notion_aws_integration.md)
+- ✅ Competitive analysis against Notion MCP (spec/proposals/20260204_notion_mcp_competitive_analysis.md)
+- ✅ Product discovery acceleration proposal (spec/proposals/20260204_product_discovery_acceleration.md)
 - ⬜ Verify Notion API webhook capabilities in sandbox
 - ⬜ Verify Amazon Bedrock AgentCore invocation patterns in sandbox
-- ⬜ Verify Bedrock Knowledge Base ingestion from Notion content format in sandbox
+- ⬜ Verify AgentCore agents can call Notion API for on-demand context reads (MVP alternative to Knowledge Base)
+- ⬜ Measure latency and token cost: on-demand Notion reads vs. Knowledge Base retrieval
 - ⬜ Verify Notion API write-back (posting results to pages) in sandbox
+- ⬜ Verify S3 static site deployment with CloudFront and auto-expiry (for Mock Agent prototypes)
 - ⬜ Document sandbox findings in implementation_qa.md
-- ⬜ Prepare stakeholder review materials (customer journey diagram, cost estimates)
+- ⬜ Prepare stakeholder review materials (customer journey diagram, cost estimates, Notion MCP differentiation, discovery pipeline vision)
 - ⬜ Review and refine requirements with product team feedback
 
-## Sprint 1: Core Integration Pipeline
+### Deferred from Sprint 0 (reason: Knowledge Base moved to Sprint 4+)
 
-**Goal**: Build the minimum end-to-end pipeline: Notion trigger → Agent execution → GitHub PR → Notion update
-**Deliverable**: Working MVP that demonstrates a user story in Notion producing a pull request
+- ⏸️ Verify Bedrock Knowledge Base ingestion from Notion content format in sandbox
 
-### Tasks
+## Sprint 1: Dual Agent MVP — Code + Prototype (US-001 + US-009)
+
+**Goal**: Build the shared agent pipeline and demonstrate two agent types: Code Agent (delivery) and Mock Agent (discovery)
+**Deliverable**: PM writes a user story in Notion → triggers Code Agent → gets GitHub PR, OR triggers Mock Agent → gets clickable prototype at a shareable URL
+**User Stories**: US-001 (Trigger Code Generation), US-009 (Generate Clickable Prototype)
+
+### Shared Pipeline Tasks
 
 - ⬜ Set up AWS CDK project structure with dev environment
-- ⬜ Implement Notion webhook handler Lambda (receive + validate triggers)
+- ⬜ Implement Notion webhook handler Lambda (receive + validate triggers, dispatch by agent type)
 - ⬜ Set up SQS queue for invocation requests
-- ⬜ Implement Content Sync Lambda (Notion → Knowledge Base ingestion)
-- ⬜ Configure Bedrock Knowledge Base with Notion content schema
-- ⬜ Implement Orchestrator Lambda (dequeue → assemble prompt → invoke AgentCore)
-- ⬜ Define Code Agent system prompt and tool configuration in AgentCore
-- ⬜ Implement Delivery Handler Lambda (agent output → GitHub PR)
-- ⬜ Implement Notion Writer Lambda (post PR link + summary back to Notion)
+- ⬜ Implement Orchestrator Lambda (dequeue → fetch Notion context via API → assemble prompt → invoke AgentCore)
 - ⬜ Set up DynamoDB table for invocation tracking
-- ⬜ End-to-end integration test: Notion story → GitHub PR → Notion update
+- ⬜ Implement Notion Writer Lambda (post results + status back to Notion page)
 - ⬜ Set up CloudWatch logging and basic alarms
 
-## Sprint 2: Agent Workflows & Developer Experience
+### Code Agent Tasks (US-001)
 
-**Goal**: Add multi-agent workflows, project configuration, and execution dashboard
-**Deliverable**: Configurable agent pipelines with visibility into execution status and costs
+- ⬜ Define Code Agent system prompt and tool configuration in AgentCore
+- ⬜ Implement GitHub Delivery Handler (agent output → GitHub PR with story link and summary)
+
+### Mock Agent Tasks (US-009)
+
+- ⬜ Define Mock Agent system prompt (HTML/CSS/JS prototype generation, realistic sample data)
+- ⬜ Set up S3 bucket + CloudFront distribution for prototype hosting
+- ⬜ Implement Prototype Delivery Handler (agent output → S3 deploy → return shareable URL)
+- ⬜ Implement auto-expiry (TTL-based cleanup, default 7 days)
+
+### Integration Tests
+
+- ⬜ End-to-end test: Notion story → Code Agent → GitHub PR → Notion summary
+- ⬜ End-to-end test: Notion story → Mock Agent → deployed prototype URL → Notion link
+
+## Sprint 2: Feedback Loops — Code Iteration + Discovery (US-002 + US-010 + US-011)
+
+**Goal**: Close both feedback loops — code iteration for delivery, and Demo Deck + Insight synthesis for discovery
+**Deliverable**: PM can iterate on code output via Notion feedback. PM can generate Demo Decks for customer validation and synthesize feedback with existing customer data — all in Notion.
+**User Stories**: US-002 (Review & Feedback), US-010 (Demo Deck), US-011 (Insight Synthesis)
+
+### Code Feedback Loop Tasks (US-002)
+
+- ⬜ Extend webhook handler to detect "Needs Changes" property + feedback comments
+- ⬜ Implement feedback re-trigger (re-invoke Code Agent with original context + feedback)
+- ⬜ Add parent_invocation_id to DynamoDB for iteration history tracking
+- ⬜ Display iteration history on Notion page
+- ⬜ End-to-end test: story → PR → feedback in Notion → re-generation → updated PR
+
+### Demo Deck Agent Tasks (US-010)
+
+- ⬜ Define Demo Deck Agent system prompt (generate explanation pages, embed prototype link, create feedback form)
+- ⬜ Implement Notion multi-page creation (problem statement → solution explanation → demo scenario → feedback form)
+- ⬜ Create structured feedback database with pre-populated questions, rating scales, and open-ended fields
+- ⬜ Integrate with Mock Agent output (embed prototype URL in guided scenario section)
+- ⬜ End-to-end test: story → "Generate Demo Deck" → Notion page sequence + feedback DB → customer submits feedback via Notion link
+
+### Insight Agent Tasks (US-011)
+
+- ⬜ Define Insight Agent system prompt (multi-source analysis, cross-referencing, confidence scoring, recommendations)
+- ⬜ Implement Notion MCP integration for reading from multiple designated databases (demo feedback, customer tickets, feature requests, sales notes)
+- ⬜ Implement cross-reference logic (connect new demo feedback with existing customer signals)
+- ⬜ Post synthesis results to user story page (patterns, quotes, confidence, proceed/pivot recommendation)
+- ⬜ End-to-end test: demo feedback DB + customer ticket DB → "Synthesize" → cross-referenced insight summary
+
+## Sprint 3: Team Governance (US-004 + US-003)
+
+**Goal**: Add team-wide visibility and project configuration — capabilities with no Notion MCP equivalent
+**Deliverable**: Team leads can configure projects and monitor all agent executions from Notion
+**User Stories**: US-004 (Monitor Execution), US-003 (Project Configuration)
 
 ### Tasks
 
-- ⬜ Define Spec Agent system prompt and tool configuration
-- ⬜ Define Review Agent system prompt and tool configuration
-- ⬜ Implement agent chaining logic in Orchestrator (Spec → Code → Review)
-- ⬜ Build Notion project configuration page template
-- ⬜ Implement configuration reader (Notion config page → DynamoDB)
 - ⬜ Build Notion execution dashboard database template
 - ⬜ Implement real-time status updates from agents to Notion dashboard
 - ⬜ Add cost tracking per invocation (token usage → estimated USD)
-- ⬜ Implement feedback loop (Notion "Needs Changes" → re-trigger with comments)
+- ⬜ Implement cost aggregation per project and per time period
 - ⬜ Add error handling with user-friendly messages posted to Notion
+- ⬜ Build Notion project configuration page template
+- ⬜ Implement configuration reader (Notion config page → DynamoDB)
+- ⬜ Wire project config into Orchestrator (coding standards, repo, branch strategy)
+- ⬜ Configuration validation with clear error messages
 
-## Sprint 3: Workshop Readiness & Polish
+## Sprint 4: Workshop Readiness & Production Scale (US-006 + US-007)
 
-**Goal**: Prepare workshop-ready environment with documentation and demo materials
-**Deliverable**: Workshop kit that a facilitator can use to demonstrate the full flow
+**Goal**: Prepare workshop environment and build Knowledge Base for production-scale context
+**Deliverable**: Workshop kit for facilitators + Knowledge Base for large workspaces
+**User Stories**: US-006 (Workshop Demo), US-007 (Knowledge Base Sync)
 
-### Tasks
+### Workshop Tasks (US-006)
 
 - ⬜ Create workshop Notion workspace template (pre-configured databases, sample stories)
 - ⬜ Build one-click workshop environment setup (CDK deploy with workshop config)
-- ⬜ Write workshop facilitator guide
+- ⬜ Write workshop facilitator guide (include both discovery and delivery demo flows)
 - ⬜ Write team adoption guide (how to set up for your own project)
-- ⬜ Create sample user stories that demonstrate different agent capabilities
+- ⬜ Create sample user stories that demonstrate Code Agent, Mock Agent, Interview Agent, and Insight Agent
 - ⬜ Performance tuning: optimize end-to-end latency for demo scenarios
 - ⬜ Add spending limits and cost alerts for workshop accounts
 - ⬜ Conduct dry-run workshop with internal team
+
+### Knowledge Base for Production Tasks (US-007)
+
+- ⬜ Implement Content Sync Lambda (Notion → Knowledge Base ingestion)
+- ⬜ Configure Bedrock Knowledge Base with Notion content schema
+- ⬜ Implement incremental sync (only changed pages)
+- ⬜ Update Orchestrator to prefer Knowledge Base retrieval when available (fall back to on-demand Notion API)
+- ⬜ Sync status visible in Notion configuration page
 
 ## Backlog
 
 Items not yet scheduled for a sprint:
 
+- ⬜ A/B Test Agent: generate 2-3 variant approaches, each with Mock prototype + Demo Deck (US-012)
+- ⬜ Generate landing page for demand testing (US-013)
+- ⬜ Agent chaining: Spec → Code → Review workflows (US-008)
+- ⬜ Enriched PR descriptions with full Notion context (US-005, descoped — Notion MCP covers developer context needs)
 - ⬜ Support for multiple GitHub repositories per project
 - ⬜ Notion template gallery for different project types
 - ⬜ Custom agent definitions (user-defined system prompts)
@@ -109,43 +175,56 @@ Items not yet scheduled for a sprint:
 
 ## Reference
 
-### Project Structure
+### Sprint Assignment History
 
-```
-notion-code/
-├── spec/                 # Specifications
-│   ├── requirements.md
-│   ├── design.md
-│   ├── tasks.md
-│   ├── implementation_qa.md
-│   └── proposals/
-├── infra/                # AWS CDK infrastructure
-│   ├── bin/
-│   ├── lib/
-│   └── config/
-├── src/
-│   ├── webhook/          # Notion webhook handler
-│   ├── sync/             # Content sync to Knowledge Base
-│   ├── orchestrator/     # Agent invocation orchestrator
-│   ├── agents/           # Agent definitions (prompts, tools)
-│   ├── delivery/         # Output delivery (GitHub, Notion)
-│   └── shared/           # Shared utilities, types, config
-├── tests/                # Test files
-├── .sandbox/             # Sandbox experiments
-└── docs/                 # Workshop and adoption guides
-```
+#### 2026-02-04: Product Discovery Acceleration (proposal: 20260204_product_discovery_acceleration.md)
+
+| User Story | Before | After | Reason |
+|-----------|--------|-------|--------|
+| US-001 | Sprint 1 | Sprint 1 | Unchanged — now paired with Mock Agent |
+| US-002 | Sprint 1 | **Sprint 2** | Moved — grouped with discovery feedback loops for thematic cohesion |
+| US-003 | Sprint 2 | **Sprint 3** | Shifted one sprint — discovery agents take priority |
+| US-004 | Sprint 2 | **Sprint 3** | Shifted one sprint — discovery agents take priority |
+| US-006 | Sprint 3 | **Sprint 4** | Shifted one sprint |
+| US-007 | Sprint 3 | **Sprint 4** | Shifted one sprint |
+| US-009 (new) | — | **Sprint 1** | Mock Agent: generate clickable prototypes for customer validation |
+| US-010 (new) | — | **Sprint 2** | Demo Deck Agent: Notion-native demo experience (explain, show, collect feedback) |
+| US-011 (new) | — | **Sprint 2** | Insight Agent: synthesize demo feedback + existing customer data (via Notion MCP) |
+
+#### 2026-02-04: Notion MCP Competitive Analysis (proposal: 20260204_notion_mcp_competitive_analysis.md)
+
+| User Story | Before | After | Reason |
+|-----------|--------|-------|--------|
+| US-001 | Sprint 1 | Sprint 1 | Unchanged — core differentiator |
+| US-002 | Sprint 2 | Sprint 1 | Promoted — completes PO loop |
+| US-005 | Sprint 1 | Backlog | Demoted — Notion MCP covers developer context needs |
+| US-007 | Sprint 1 | Sprint 3 | Deferred — MVP uses on-demand Notion API reads |
+| US-008 | Sprint 2 | Backlog | Deferred — medium value, high cost |
+
+### Agent Inventory
+
+| Agent | Type | Input | Output | Sprint |
+|-------|------|-------|--------|--------|
+| Code Agent | Code generation | User story + context | GitHub PR | 1 |
+| Mock Agent | Prototype generation | User story | Hosted URL (S3/CloudFront) | 1 |
+| Demo Deck Agent | Notion page + DB generation | User story + prototype URL | Notion page sequence + feedback DB | 2 |
+| Insight Agent | Multi-source analysis (via Notion MCP) | Feedback DB + customer tickets + any Notion DB | Notion page update (cross-referenced synthesis) | 2 |
+| A/B Test Agent | Multi-variant generation | User story | 2-3 variants × (Mock + Demo Deck) + unified feedback DB | Backlog |
+| Spec Agent | Text generation | User story | Technical spec document | Backlog |
+| Review Agent | Code analysis | Generated code + criteria | Review comments | Backlog |
 
 ### Key AWS Services
 
-| Service | Role |
-|---------|------|
-| API Gateway | Notion webhook endpoint |
-| Lambda | All compute (webhook, sync, orchestrator, delivery) |
-| SQS | Invocation queue with DLQ |
-| DynamoDB | Invocation records, project config |
-| Bedrock AgentCore | Serverless agent execution |
-| Bedrock Knowledge Bases | Notion content storage and retrieval |
-| Bedrock (Claude) | Foundation model for all agents |
-| Secrets Manager | Notion/GitHub credentials |
-| CloudWatch | Logging, metrics, alarms, cost tracking |
-| KMS | Encryption key management |
+| Service | Role | Sprint |
+|---------|------|--------|
+| API Gateway | Notion webhook endpoint | 1 |
+| Lambda | All compute (webhook, orchestrator, delivery) | 1 |
+| SQS | Invocation queue with DLQ | 1 |
+| DynamoDB | Invocation records, project config | 1-3 |
+| Bedrock AgentCore | Serverless agent execution | 1 |
+| Bedrock (Claude) | Foundation model for all agents | 1 |
+| S3 + CloudFront | Prototype hosting for Mock Agent | 1 |
+| Secrets Manager | Notion/GitHub credentials | 1 |
+| CloudWatch | Logging, metrics, alarms, cost tracking | 1-3 |
+| KMS | Encryption key management | 1 |
+| Bedrock Knowledge Bases | Notion content storage and retrieval (production scale) | 4 |
