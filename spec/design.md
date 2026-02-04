@@ -1,7 +1,7 @@
 # Design Specification
 
 **Project**: Notion-AWS Integration for AI-Driven Development Lifecycle (AI DLC)
-**Version**: 0.2.0
+**Version**: 0.3.0
 **Last Updated**: 2026-02-04
 
 ## 1. Architecture Overview
@@ -29,16 +29,15 @@ graph TB
 
         subgraph AgentCore["Amazon Bedrock AgentCore"]
             subgraph Runtime["Runtime (microVM per session)"]
-                CODE_A[Code Agent]
-                MOCK_A[Mock Agent]
-                DECK_A[Demo Deck Agent]
-                INSIGHT_A[Insight Agent]
+                SDK[Claude Agent SDK]
+                SKILLS[Agent Skills<br/>code-gen | prototype | demo-deck | insight]
+                MCP_JSON[".mcp.json<br/>(Notion MCP, GitHub MCP)"]
             end
-            GW[Gateway: Unified MCP Endpoint]
+            GW["Gateway: Unified MCP Endpoint<br/>(Sprint 3+)"]
             MEM[Memory: Session & Long-Term]
-            IDN[Identity: OAuth & Credentials]
+            IDN["Identity: OAuth & Credentials<br/>(Sprint 3+)"]
             OBS[Observability: OpenTelemetry]
-            POL[Policy: Tool Authorization]
+            POL["Policy: Tool Authorization<br/>(Sprint 3+)"]
         end
 
         ORCH[Lambda: Orchestrator]
@@ -73,18 +72,18 @@ graph TB
     CFG -->|Sync project config| DDB
 
     %% Agent execution
-    Runtime -->|Call model| BR
-    Runtime -->|Discover & call tools| GW
+    SDK -->|Call model via Bedrock| BR
+    SDK -->|Load behavior| SKILLS
+    SDK -->|MCP tool access| MCP_JSON
+    MCP_JSON -->|Notion reads & writes| NOTION_MCP
+    MCP_JSON -->|GitHub operations| GH
+    SDK -->|Upload prototypes via Bash+AWS CLI| S3
     Runtime -->|Session context| MEM
-    GW -->|Notion reads & writes| NOTION_MCP
-    GW -->|GitHub operations| GH
-    GW -->|Upload prototypes| S3
 
-    %% Agent output destinations
-    CODE_A -.->|Create PR via Gateway| GH
-    MOCK_A -.->|Deploy prototype via Gateway| S3
-    DECK_A -.->|Create pages via Gateway| NOTION_MCP
-    INSIGHT_A -.->|Post synthesis via Gateway| NOTION_MCP
+    %% Sprint 3+ Gateway migration
+    MCP_JSON -.->|"Sprint 3+: migrate to"| GW
+    GW -.->|Centralized auth| NOTION_MCP
+    GW -.->|Centralized auth| GH
 
     %% Completion flow
     Runtime -->|Completion event| COMP
@@ -114,16 +113,19 @@ graph TB
 | Collaboration | Notion | User story management, trigger source, feedback collection | 1 |
 | HTTP Ingress | Amazon API Gateway | HTTPS endpoint for Notion webhooks | 1 |
 | Task Queue | Amazon SQS + DLQ | Decouple trigger reception from agent execution | 1 |
+| Agent SDK | Claude Agent SDK (`claude-agent-sdk`) | Claude Code runtime as a library — built-in tools, skills, MCP, session management | 1 |
+| Agent Skills | Agent Skills (SKILL.md) | Skill-based agent behavior configuration following the open standard | 1 |
 | Agent Runtime | Amazon Bedrock AgentCore Runtime | Serverless microVM execution for AI agents (container-based) | 1 |
-| Tool Management | Amazon Bedrock AgentCore Gateway | Unified MCP endpoint aggregating Notion MCP, GitHub, S3 tools | 1 |
-| Context (MVP) | Notion MCP Server | On-demand reads from Notion workspace via MCP protocol | 1 |
-| Foundation Model | Amazon Bedrock (Claude) | Code generation, prototype generation, review, synthesis | 1 |
-| Code Delivery | GitHub API (via MCP) | Pull request creation and management | 1 |
+| Tool Management (MVP) | MCP Servers via `.mcp.json` | Direct MCP connections to Notion, GitHub, and other servers | 1 |
+| Tool Management (Scale) | Amazon Bedrock AgentCore Gateway | Unified MCP endpoint with centralized auth, discovery, and policy | 3 |
+| Context (MVP) | Notion MCP Server (`@notionhq/notion-mcp-server`) | On-demand reads from Notion workspace via MCP protocol | 1 |
+| Foundation Model | Amazon Bedrock (Claude) | Code generation, prototype generation, review, synthesis (via `CLAUDE_CODE_USE_BEDROCK=1`) | 1 |
+| Code Delivery | GitHub MCP (`@modelcontextprotocol/server-github`) | Pull request creation and management via MCP | 1 |
 | Prototype Hosting | Amazon S3 + CloudFront | Shareable URLs for generated prototypes with auto-expiry | 1 |
 | Invocation Tracking | Amazon DynamoDB | Agent invocation records, project config, cost tracking | 1 |
 | Secrets | AWS Secrets Manager | Notion tokens, GitHub tokens, API keys | 1 |
-| Agent Identity | AgentCore Identity | OAuth credential management for agent-to-tool auth | 1 |
 | Monitoring | AgentCore Observability + CloudWatch | OpenTelemetry traces, metrics, cost dashboards | 1 |
+| Agent Identity | AgentCore Identity | OAuth credential management for agent-to-tool auth | 3 |
 | Agent Memory | AgentCore Memory | Short-term (session) and long-term (cross-session) context | 2 |
 | Tool Policy | AgentCore Policy | Real-time tool-call authorization via Cedar policies | 3 |
 | Context (Scale) | Amazon Bedrock Knowledge Bases | Pre-indexed Notion content for faster retrieval at scale | 4 |
@@ -132,15 +134,16 @@ graph TB
 
 ### 1.3 Design Principles
 
-1. **AgentCore-Centric**: Agents run on AgentCore Runtime with full tool ownership — agents create PRs, deploy prototypes, and write Notion pages directly via Gateway tools, not through intermediary Lambdas
-2. **Event-Driven**: All workflows are triggered by events (Notion property changes, SQS messages, agent completion), not polling
-3. **Serverless-First**: No long-running servers; all compute is on-demand (Lambda, AgentCore Runtime microVMs)
-4. **Gateway as Tool Hub**: All external tool access (Notion MCP, GitHub, S3) flows through AgentCore Gateway for centralized auth, discovery, and policy enforcement
-5. **Thin Orchestration Layer**: Lambda functions handle only queuing, budget checks, and status tracking — agents handle all business logic
-6. **Decoupled Components**: SQS between webhook handler and orchestrator allows independent scaling and retry
-7. **Idempotent Operations**: All handlers are idempotent; duplicate events produce the same result
-8. **Observable from Day One**: Every component emits structured logs and OpenTelemetry traces to CloudWatch
-9. **Multi-Agent by Design**: Each agent type is a separate AgentCore Runtime with independent versioning, scaling, and rollback
+1. **Claude Code Ecosystem**: Agents are powered by the Claude Agent SDK, giving them Claude Code's full tool suite (file ops, code execution, web access) plus the Agent Skills ecosystem for extensible behavior
+2. **Skill-Driven Behavior**: Agent capabilities are defined as SKILL.md files — developers create skills that encode project-specific patterns; PMs trigger them from Notion without technical knowledge
+3. **Event-Driven**: All workflows are triggered by events (Notion property changes, SQS messages, agent completion), not polling
+4. **Serverless-First**: No long-running servers; all compute is on-demand (Lambda, AgentCore Runtime microVMs)
+5. **MCP-Native Tool Access**: External tools (Notion, GitHub, etc.) are connected via MCP servers configured in `.mcp.json` — direct connections for MVP, AgentCore Gateway for production governance
+6. **Thin Orchestration Layer**: Lambda functions handle only queuing, budget checks, and status tracking — agents handle all business logic via Claude Agent SDK
+7. **Decoupled Components**: SQS between webhook handler and orchestrator allows independent scaling and retry
+8. **Idempotent Operations**: All handlers are idempotent; duplicate events produce the same result
+9. **Observable from Day One**: Every component emits structured logs and OpenTelemetry traces to CloudWatch
+10. **Single Runtime, Multiple Skills**: One AgentCore Runtime container serves all agent types — behavior varies by skill selection, not by container image
 
 ## 2. Data Models
 
@@ -378,9 +381,58 @@ Unrecognized trigger values are ignored (logged at DEBUG level).
 6. **Notify users**: mention relevant Notion users on the results page to trigger Notion's built-in notification system
 7. For chained workflows (`agent_chain_template`), enqueue the next step to SQS (e.g., after Mock Agent completes, queue Demo Deck Agent with the prototype URL)
 
-### 4.4 AgentCore Gateway Configuration
+### 4.4 MCP Tool Configuration
 
-**Purpose**: Provides a single unified MCP endpoint that all agents connect to for tool access. Centralizes authentication, tool discovery, and policy enforcement.
+**Purpose**: Provides agents access to external tools (Notion, GitHub, etc.) via the Model Context Protocol. The configuration strategy evolves from direct connections (MVP) to centralized Gateway (production).
+
+#### 4.4.1 MVP: Direct MCP Connections via `.mcp.json`
+
+In Sprint 1-2, agents connect directly to MCP servers configured declaratively:
+
+```json
+{
+  "mcpServers": {
+    "notion": {
+      "command": "npx",
+      "args": ["-y", "@notionhq/notion-mcp-server"],
+      "env": {
+        "NOTION_TOKEN": "${NOTION_TOKEN}"
+      }
+    },
+    "github": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-github"],
+      "env": {
+        "GITHUB_TOKEN": "${GITHUB_TOKEN}"
+      }
+    }
+  }
+}
+```
+
+The Claude Agent SDK loads `.mcp.json` automatically when `setting_sources=["project"]` is configured. MCP tools are accessed with the naming convention `mcp__<server-name>__<tool-name>` (e.g., `mcp__notion__notion_read_page`).
+
+**Advantages for MVP**: No Gateway infrastructure needed; direct connections are simpler and faster to set up.
+
+**Trade-offs**: No centralized auth rotation, no policy enforcement, credentials managed per-container via environment variables.
+
+#### 4.4.2 Production: AgentCore Gateway (Sprint 3+)
+
+For production governance, MCP traffic migrates to AgentCore Gateway:
+
+```json
+{
+  "mcpServers": {
+    "gateway": {
+      "type": "http",
+      "url": "${GATEWAY_MCP_ENDPOINT}",
+      "headers": {
+        "Authorization": "Bearer ${GATEWAY_TOKEN}"
+      }
+    }
+  }
+}
+```
 
 **Gateway Targets**:
 
@@ -391,109 +443,129 @@ Unrecognized trigger values are ignored (logged at DEBUG level).
 | S3 Prototype Uploader | Lambda | `s3_upload_prototype`, `s3_generate_url` | IAM role |
 | Code Sandbox | AgentCore Code Interpreter | `execute_code`, `install_package` | Built-in |
 
-**Agent → Gateway Connection** (in agent code):
-```python
-from strands import Agent
-from strands.models import BedrockModel
-from strands.tools.mcp.mcp_client import MCPClient
-from mcp.client.streamable_http import streamablehttp_client
+**Semantic Tool Discovery**: Gateway's `McpGatewaySearchType.SEMANTIC` allows agents to discover tools by describing what they need, rather than requiring hardcoded tool names.
 
-mcp_client = MCPClient(lambda: streamablehttp_client(
-    url=GATEWAY_MCP_ENDPOINT,
-    headers={"Authorization": f"Bearer {access_token}"}
-))
+**Migration path**: The `.mcp.json` configuration is the only change — agent code and skills remain identical. The Gateway URL replaces individual server entries.
 
-with mcp_client:
-    tools = mcp_client.list_tools_sync()
-    agent = Agent(
-        model=BedrockModel(model_id="anthropic.claude-sonnet-4-20250514"),
-        system_prompt=SYSTEM_PROMPT,
-        tools=tools
-    )
-    result = agent(payload["prompt"])
+### 4.5 Agent Skills (Behavior Configuration)
+
+Agent capabilities are defined as **Agent Skills** — SKILL.md files that follow the [Agent Skills open standard](https://agentskills.io). A single AgentCore Runtime container hosts all skills; the Claude Agent SDK automatically discovers and invokes the relevant skill based on the trigger context.
+
+#### 4.5.1 Skill Directory Layout
+
+```
+.claude/skills/
+├── code-generation/
+│   └── SKILL.md              # Code Agent behavior
+├── prototype-generation/
+│   └── SKILL.md              # Mock Agent behavior
+├── demo-deck/
+│   └── SKILL.md              # Demo Deck Agent behavior
+├── insight-synthesis/
+│   └── SKILL.md              # Insight Agent behavior
+└── [developer-created]/      # Custom project-specific skills
+    └── SKILL.md
 ```
 
-**Semantic Tool Discovery**: Gateway's `enable_semantic_search=True` allows agents to discover tools by describing what they need, rather than requiring hardcoded tool names.
+#### 4.5.2 Skill Definitions
 
-### 4.5 Agent Definitions (AgentCore Runtime)
+Each skill is a SKILL.md file with YAML frontmatter and Markdown instructions:
 
-Each agent type is deployed as a separate AgentCore Runtime with its own container image, system prompt, and tool configuration. All agents connect to the shared Gateway for tool access.
+```markdown
+---
+name: skill-name
+description: When to invoke this skill (matched against task context)
+---
 
-#### 4.5.1 Code Agent (Sprint 1)
+# Skill Title
+
+[Detailed instructions Claude follows when this skill is active]
+
+## Workflow
+[Step-by-step process]
+
+## Guidelines
+[Quality standards and constraints]
+```
+
+#### 4.5.3 Code Generation Skill (Sprint 1)
 
 | Aspect | Detail |
 |--------|--------|
+| **Skill Name** | `code-generation` |
 | **Purpose** | Generate implementation code from user stories and create GitHub PRs |
 | **Input** | User story (title, acceptance criteria, body) + project config (coding standards, framework preferences, branch strategy) |
-| **Gateway Tools** | Notion MCP (read context: related stories, design docs), GitHub (create branch, commit files, create PR), Code Interpreter (run tests, validate syntax) |
+| **MCP Tools** | `mcp__notion__*` (read context: related stories, design docs), `mcp__github__*` (create branch, commit files, create PR) |
+| **Built-in Tools** | Read, Write, Edit, Bash (run tests, validate syntax), Glob, Grep |
 | **Output** | GitHub PR with implementation code, test files, and description referencing the Notion story |
-| **System Prompt Focus** | Follow project coding conventions; generate implementation drafts with tests; create descriptive PR titles and bodies; reference the Notion page ID in the PR description |
-| **Chaining** | Terminal — does not trigger subsequent agents |
+| **Skill Instructions Focus** | Follow project coding conventions; generate implementation drafts with tests; create descriptive PR titles and bodies; reference the Notion page ID in the PR description |
+| **Chaining** | Terminal — does not trigger subsequent skills |
 
-#### 4.5.2 Mock Agent (Sprint 1)
+#### 4.5.4 Prototype Generation Skill (Sprint 1)
 
 | Aspect | Detail |
 |--------|--------|
+| **Skill Name** | `prototype-generation` |
 | **Purpose** | Generate interactive HTML/CSS/JS prototypes from user stories and deploy to shareable URLs |
 | **Input** | User story (title, acceptance criteria, UI description) |
-| **Gateway Tools** | Notion MCP (read context: UI specs, design references), Code Interpreter (validate prototype renders), S3 Prototype Uploader (deploy files) |
-| **Output** | CloudFront URL to the deployed prototype, screenshot |
-| **System Prompt Focus** | Generate self-contained HTML/CSS/JS prototypes that demonstrate the user experience described in the story; optimize for clarity over production quality; include realistic sample data |
+| **MCP Tools** | `mcp__notion__*` (read context: UI specs, design references) |
+| **Built-in Tools** | Write (generate HTML/CSS/JS files), Bash (deploy to S3 via AWS CLI), Read |
+| **Output** | CloudFront URL to the deployed prototype |
+| **Skill Instructions Focus** | Generate self-contained HTML/CSS/JS prototypes; demonstrate the user experience described in the story; optimize for clarity over production quality; include realistic sample data |
 | **Prototype Structure** | Single-page or multi-page HTML with inline CSS/JS, deployed to `s3://{bucket}/{invocation_id}/` with S3 lifecycle rule for auto-expiry |
-| **Chaining** | Can trigger Demo Deck Agent (passes prototype URL as context) |
+| **Chaining** | Can trigger Demo Deck skill (passes prototype URL as context) |
 
-#### 4.5.3 Demo Deck Agent (Sprint 2)
+#### 4.5.5 Demo Deck Skill (Sprint 2)
 
 | Aspect | Detail |
 |--------|--------|
+| **Skill Name** | `demo-deck` |
 | **Purpose** | Generate a structured Notion page sequence for customer demos and create a feedback collection database |
-| **Input** | User story + prototype URL (from Mock Agent or manual) |
-| **Gateway Tools** | Notion MCP (read context, create pages, create database) |
+| **Input** | User story + prototype URL (from Prototype Generation or manual) |
+| **MCP Tools** | `mcp__notion__*` (read context, create pages, create database) |
+| **Built-in Tools** | Read (reference materials), WebFetch (fetch prototype for context) |
 | **Output** | Notion page sequence (problem → solution → prototype link → call to action) + feedback database with pre-populated questions |
-| **System Prompt Focus** | Create compelling narrative flow; structure pages for non-technical stakeholders; generate feedback questions that capture desirability, clarity, and concerns; link prototype URL prominently |
+| **Skill Instructions Focus** | Create compelling narrative flow; structure pages for non-technical stakeholders; generate feedback questions that capture desirability, clarity, and concerns; link prototype URL prominently |
 | **Feedback DB** | Creates a Notion database following the schema in Section 2.3, pre-populated with question prompts |
-| **Chaining** | Terminal — Insight Agent is triggered manually after feedback is collected |
+| **Chaining** | Terminal — Insight skill is triggered manually after feedback is collected |
 
-#### 4.5.4 Insight Agent (Sprint 2)
+#### 4.5.6 Insight Synthesis Skill (Sprint 2)
 
 | Aspect | Detail |
 |--------|--------|
+| **Skill Name** | `insight-synthesis` |
 | **Purpose** | Synthesize feedback from the feedback database and designated Notion data sources into actionable insights |
 | **Input** | Feedback database ID + list of additional Notion page/database IDs to analyze |
-| **Gateway Tools** | Notion MCP (read feedback database, read designated data sources, write synthesis page) |
+| **MCP Tools** | `mcp__notion__*` (read feedback database, read designated data sources, write synthesis page) |
+| **Built-in Tools** | Read, Bash (data processing scripts if needed) |
 | **Output** | Notion page with quantitative summary (ratings, trends) and qualitative synthesis (themes, quotes, recommendations) |
-| **System Prompt Focus** | Aggregate numerical ratings with statistics; identify recurring themes in open-ended feedback; surface direct quotes as evidence; produce prioritized recommendations; remain objective and evidence-based |
+| **Skill Instructions Focus** | Aggregate numerical ratings with statistics; identify recurring themes in open-ended feedback; surface direct quotes as evidence; produce prioritized recommendations; remain objective and evidence-based |
 | **Chaining** | Terminal |
 
-#### 4.5.5 Spec Agent (Backlog)
+#### 4.5.7 Backlog Skills
 
-| Aspect | Detail |
-|--------|--------|
-| **Purpose** | Translate user stories into detailed technical specifications |
-| **Input** | User story + context from Notion MCP |
-| **Gateway Tools** | Notion MCP (read context) |
-| **Output** | Technical specification document (requirements, design notes, task breakdown) |
-| **Chaining** | Can trigger Code Agent |
+| Skill Name | Purpose | Sprint |
+|-----------|---------|--------|
+| `spec-generation` | Translate user stories into detailed technical specifications | Backlog |
+| `code-review` | Review generated code against acceptance criteria | Backlog |
+| `ab-test` | Generate variant prototypes for A/B testing | Backlog |
 
-#### 4.5.6 Review Agent (Backlog)
+#### 4.5.8 Developer-Created Skills
 
-| Aspect | Detail |
-|--------|--------|
-| **Purpose** | Review generated code against acceptance criteria |
-| **Input** | Generated code (from PR) + acceptance criteria + context |
-| **Gateway Tools** | Notion MCP (read criteria), GitHub (read PR diff, post review comments) |
-| **Output** | Review comments, pass/fail assessment, suggested improvements |
-| **Chaining** | Terminal |
+Developers can create project-specific skills to extend agent capabilities:
 
-#### 4.5.7 A/B Test Agent (Backlog)
+1. Create a directory under `.claude/skills/` with a `SKILL.md` file
+2. Define YAML frontmatter with `name` and `description`
+3. Write Markdown instructions that encode project-specific patterns
+4. Commit to the project repository — deployed with the next container build
+5. The Claude Agent SDK auto-discovers the skill and invokes it when the description matches the task context
 
-| Aspect | Detail |
-|--------|--------|
-| **Purpose** | Generate variant prototypes for A/B testing |
-| **Input** | User story + variant parameters |
-| **Gateway Tools** | Notion MCP, Code Interpreter, S3 Prototype Uploader |
-| **Output** | Multiple prototype URLs with variant descriptions |
-| **Chaining** | Can trigger Demo Deck Agent per variant |
+**Example use cases**:
+- A skill encoding React + TypeScript patterns for the team's frontend stack
+- A skill for generating database migration scripts following the project's ORM conventions
+- A skill for creating Notion-formatted test plans from user stories
+
+**Collaboration model**: Developers define "how" (coding standards, architecture patterns, framework choices) via skills. PMs define "what" (user stories, acceptance criteria, business context) via Notion. The agent bridges the gap.
 
 ### 4.6 Content Sync (Lambda — Sprint 4+)
 
@@ -518,82 +590,126 @@ Each agent type is deployed as a separate AgentCore Runtime with its own contain
 
 ### 5.1 Container Structure
 
-Each agent type is packaged as a container image pushed to Amazon ECR:
+A **single agent container** hosts all skills, MCP configuration, and the Claude Agent SDK runtime. Behavior varies by skill selection, not by container image.
 
 ```
 agents/
-├── code-agent/
-│   ├── Dockerfile
-│   ├── agent.py              # Agent entrypoint (Strands Agent)
-│   ├── prompts/
-│   │   └── system_prompt.md  # System prompt template
-│   └── requirements.txt
-├── mock-agent/
-│   ├── Dockerfile
-│   ├── agent.py
-│   ├── prompts/
-│   │   └── system_prompt.md
-│   └── requirements.txt
-├── demo-deck-agent/
-│   └── ...
-├── insight-agent/
-│   └── ...
-└── shared/
-    ├── gateway_client.py     # Shared Gateway connection logic
-    └── utils.py              # Shared utilities
+├── Dockerfile                     # Base: Node.js + @anthropic-ai/claude-code + Python
+├── main.py                        # AgentCore entrypoint using claude_agent_sdk
+├── requirements.txt               # Python dependencies (claude-agent-sdk, bedrock-agentcore)
+├── .mcp.json                      # MCP server configuration (Notion, GitHub, etc.)
+├── CLAUDE.md                      # Base system prompt — project context and conventions
+├── .claude/
+│   └── skills/
+│       ├── code-generation/
+│       │   └── SKILL.md           # Code generation behavior
+│       ├── prototype-generation/
+│       │   └── SKILL.md           # Prototype generation behavior
+│       ├── demo-deck/
+│       │   └── SKILL.md           # Demo deck generation behavior
+│       ├── insight-synthesis/
+│       │   └── SKILL.md           # Insight synthesis behavior
+│       └── [developer-created]/   # Project-specific custom skills
+│           └── SKILL.md
+└── work/                          # Working directory for agent file I/O
+    ├── input/                     # Input files (user story context, attachments)
+    └── output/                    # Output files (generated code, prototypes)
 ```
 
-### 5.2 Agent Entrypoint Pattern
+### 5.2 Dockerfile
 
-All agents follow a consistent entrypoint pattern using the Strands Agents framework:
+```dockerfile
+FROM python:3.12-slim
+
+# Install Node.js (required for Claude Code and MCP servers)
+RUN apt-get update && apt-get install -y curl && \
+    curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && \
+    apt-get install -y nodejs && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# Install Claude Code CLI (required by claude-agent-sdk)
+RUN npm install -g @anthropic-ai/claude-code
+
+# Install Python dependencies
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy agent application
+COPY . /app
+WORKDIR /app
+
+# Create working directories
+RUN mkdir -p /work/input /work/output
+
+# Environment configuration for Bedrock
+ENV CLAUDE_CODE_USE_BEDROCK=1
+ENV ANTHROPIC_DEFAULT_SONNET_MODEL=us.anthropic.claude-sonnet-4-5-20250929-v1:0
+ENV ANTHROPIC_DEFAULT_HAIKU_MODEL=us.anthropic.claude-haiku-4-5-20251001-v1:0
+ENV CLAUDE_CODE_MAX_OUTPUT_TOKENS=4096
+ENV MAX_THINKING_TOKENS=1024
+
+# MCP server timeout configuration
+ENV MCP_TIMEOUT=600000
+ENV MCP_TOOL_TIMEOUT=600000
+
+EXPOSE 8080
+CMD ["python", "main.py"]
+```
+
+### 5.3 Agent Entrypoint Pattern
+
+The entrypoint uses the Claude Agent SDK `query()` function hosted on AgentCore:
 
 ```python
-from bedrock_agentcore import BedrockAgentCoreApp
-from strands import Agent
-from strands.models import BedrockModel
-from strands.tools.mcp.mcp_client import MCPClient
-from mcp.client.streamable_http import streamablehttp_client
-import os, json
+import asyncio
+import json
+import os
+from dataclasses import asdict
+
+from bedrock_agentcore.runtime import BedrockAgentCoreApp
+from claude_agent_sdk import query, ClaudeAgentOptions
 
 app = BedrockAgentCoreApp()
 
-SYSTEM_PROMPT = open("prompts/system_prompt.md").read()
-GATEWAY_URL = os.environ["GATEWAY_MCP_ENDPOINT"]
-
-def create_agent(access_token: str) -> Agent:
-    mcp_client = MCPClient(lambda: streamablehttp_client(
-        url=GATEWAY_URL,
-        headers={"Authorization": f"Bearer {access_token}"}
-    ))
-    mcp_client.__enter__()
-    tools = mcp_client.list_tools_sync()
-    return Agent(
-        model=BedrockModel(model_id=os.environ.get("MODEL_ID", "anthropic.claude-sonnet-4-20250514")),
-        system_prompt=SYSTEM_PROMPT,
-        tools=tools
-    )
+# Allowed tools — Claude Code built-in + MCP servers
+ALLOWED_TOOLS = [
+    # Claude Code built-in tools
+    "Skill", "Read", "Write", "Edit", "Bash", "Glob", "Grep",
+    "WebFetch", "Task", "TodoWrite",
+    # MCP tools (wildcard per server)
+    "mcp__notion__*",
+    "mcp__github__*",
+]
 
 @app.entrypoint
-def invoke(payload: dict) -> dict:
-    access_token = payload.get("gateway_token")
-    agent = create_agent(access_token)
+async def invocations(payload, context):
     prompt = payload.get("prompt", "")
-    result = agent(prompt)
-    return {
-        "status": "completed",
-        "summary": result.message,
-        "artifacts": payload.get("artifacts", []),
-        "token_usage": {
-            "input_tokens": result.token_usage.input_tokens,
-            "output_tokens": result.token_usage.output_tokens
-        }
-    }
+    session_id = payload.get("session_id")
+
+    options = ClaudeAgentOptions(
+        cwd="/app",
+        setting_sources=["project"],       # Load skills from .claude/skills/
+        allowed_tools=ALLOWED_TOOLS,
+        permission_mode="bypassPermissions",
+        resume=session_id,                 # Resume previous session if provided
+    )
+
+    async for message in query(prompt=prompt, options=options):
+        data = {"type": message.__class__.__name__, **asdict(message)}
+        yield {"message": json.dumps(data, ensure_ascii=False)}
 
 if __name__ == "__main__":
     app.run()
 ```
 
-### 5.3 Versioning and Endpoints
+**Key design decisions**:
+- `setting_sources=["project"]` enables skill discovery from `.claude/skills/`
+- `permission_mode="bypassPermissions"` allows autonomous tool execution (no human-in-the-loop for agent runtime)
+- `resume=session_id` enables multi-turn interactions (Sprint 2 feedback loops)
+- MCP servers are loaded from `.mcp.json` automatically — no MCP client code needed
+- Streaming responses via `yield` for real-time status updates
+
+### 5.4 Versioning and Endpoints
 
 | Concept | Detail |
 |---------|--------|
@@ -603,7 +719,7 @@ if __name__ == "__main__":
 | **Rollback** | Point an endpoint to a previous version if issues are detected |
 | **A/B testing** | Create a `beta` endpoint routed to a subset of invocations for evaluation |
 
-### 5.4 Session Management
+### 5.5 Session Management
 
 | Aspect | Detail |
 |--------|--------|
@@ -618,17 +734,21 @@ if __name__ == "__main__":
 
 ### 6.1 Authentication
 
-- **Notion**: OAuth 2.0 integration token managed by AgentCore Identity, stored in Secrets Manager as the seed credential
-- **GitHub**: GitHub App credentials managed by AgentCore Identity, stored in Secrets Manager
+- **Notion (MVP)**: OAuth 2.0 integration token stored in Secrets Manager, injected as `NOTION_TOKEN` environment variable into the AgentCore Runtime container. The Notion MCP server (`@notionhq/notion-mcp-server`) reads this token from the environment.
+- **Notion (Sprint 3+)**: Token managed by AgentCore Identity with automatic rotation, accessed via Gateway
+- **GitHub (MVP)**: Personal access token or GitHub App credentials stored in Secrets Manager, injected as `GITHUB_TOKEN` environment variable. The GitHub MCP server reads this from the environment.
+- **GitHub (Sprint 3+)**: Credentials managed by AgentCore Identity, accessed via Gateway
 - **AWS**: IAM roles with least-privilege policies per Lambda function and per AgentCore Runtime
-- **Agent-to-Gateway**: OAuth bearer tokens issued by AgentCore Identity, scoped per agent type
+- **Bedrock**: AgentCore Runtime's execution role includes `bedrock:InvokeModel` permissions for Claude models
 
 ### 6.2 Authorization
 
 - **Webhook endpoint**: API Gateway validates Notion webhook signatures
 - **Lambda IAM roles**: Scoped per function (e.g., orchestrator can invoke AgentCore but cannot write to S3 directly)
 - **AgentCore Runtime**: microVM isolation ensures agents cannot access other sessions
-- **AgentCore Gateway**: Routes tool calls through AgentCore Identity for per-user, per-tool authorization
+- **Claude Agent SDK**: `allowed_tools` configuration restricts which tools the agent can use per invocation
+- **AgentCore Runtime security**: System prompt includes security restrictions to prevent malicious command execution (block system reconnaissance, privilege escalation, SSRF attacks)
+- **AgentCore Gateway (Sprint 3+)**: Routes tool calls through AgentCore Identity for per-user, per-tool authorization
 - **AgentCore Policy (Sprint 3+)**: Cedar policies for real-time tool-call authorization (e.g., "agents cannot delete Notion pages", "agents cannot push to main branch")
 
 ### 6.3 Data Encryption
@@ -639,8 +759,9 @@ if __name__ == "__main__":
 ### 6.4 Secrets Management
 
 - All credentials in AWS Secrets Manager with automatic rotation where supported
-- AgentCore Identity manages OAuth token refresh for Notion and GitHub
-- No credentials in code or environment variables — environment variables reference Secrets Manager ARNs or AgentCore Identity endpoints
+- **MVP**: Secrets Manager values injected as environment variables into AgentCore Runtime container (`NOTION_TOKEN`, `GITHUB_TOKEN`). The `.mcp.json` references these via `${ENV_VAR}` syntax.
+- **Sprint 3+**: AgentCore Identity manages OAuth token refresh for Notion and GitHub
+- No credentials in code or configuration files — environment variables reference Secrets Manager ARNs
 
 ### 6.5 Prototype Security
 
@@ -743,11 +864,19 @@ infra/
 ├── lib/
 │   ├── ingress-stack.ts             # API Gateway + Webhook Handler Lambda
 │   ├── orchestration-stack.ts       # Orchestrator Lambda + SQS + DLQ + DynamoDB
-│   ├── agentcore-stack.ts           # AgentCore Runtimes + Gateway + Identity config
+│   ├── agentcore-stack.ts           # Single AgentCore Runtime (Claude Agent SDK + Skills) + ECR
 │   ├── prototype-hosting-stack.ts   # S3 bucket + CloudFront + lifecycle rules
 │   ├── completion-stack.ts          # Completion Handler Lambda
 │   ├── monitoring-stack.ts          # CloudWatch dashboards, alarms, SNS topics
+│   ├── gateway-stack.ts            # Sprint 3+: AgentCore Gateway + Identity config
 │   └── knowledge-base-stack.ts     # Sprint 4+: Content Sync Lambda + Knowledge Base
+├── agents/                          # Agent container source (see Section 5.1)
+│   ├── Dockerfile
+│   ├── main.py
+│   ├── .mcp.json
+│   ├── CLAUDE.md
+│   ├── .claude/skills/
+│   └── requirements.txt
 └── config/
     └── environments.ts              # Per-environment configuration
 ```

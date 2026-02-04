@@ -1,7 +1,7 @@
 # Requirements Specification
 
 **Project**: Notion-AWS Integration for AI-Driven Development Lifecycle (AI DLC)
-**Version**: 0.2.0
+**Version**: 0.3.0
 **Last Updated**: 2026-02-04
 
 ## 1. Overview
@@ -10,12 +10,14 @@ This project integrates Notion with Amazon Bedrock AgentCore to enable product d
 
 **Fundamental value**: Accelerate product discovery to generate promising user stories, then pass validated stories to developers for implementation.
 
-**Fundamental implementation**: "Invoke Agent from Notion" — a secure and scalable infrastructure on AWS that lets any Notion action trigger any agent type. Agents leverage Notion MCP to extract abundant content from the workspace.
+**Fundamental implementation**: "Invoke Agent from Notion" — a secure and scalable infrastructure on AWS that lets any Notion action trigger AI agents powered by the **Claude Agent SDK** on **Amazon Bedrock AgentCore**. Agents leverage Notion MCP to extract abundant content from the workspace, and use **Agent Skills** to define specialized behaviors.
 
 The system supports two categories of agents:
 
 - **Discovery agents** (PM-facing): Generate prototypes, demo experiences, and feedback synthesis — no developer needed. PMs validate ideas with real customers in hours instead of months.
 - **Delivery agents** (developer-facing): Generate implementation drafts from validated user stories. Developers review and refine AI-generated code via GitHub pull requests.
+
+**Ecosystem approach**: By building on the Claude Code ecosystem (Agent SDK + Skills + MCP), developers can create and share Skills that define agent behavior — coding standards, prototype patterns, analysis frameworks — while PMs trigger these capabilities from Notion without technical knowledge. This accelerates PM-developer collaboration: developers provide reliable, tested Skills; PMs apply them to real business problems.
 
 ## 2. Problem Statement
 
@@ -104,20 +106,30 @@ Notion serves as the single pane of glass for product decisions, while AWS handl
 
 ### 4.3 Agent Orchestration
 
-- **REQ-AO-001**: The system shall invoke AI agent workloads on Amazon Bedrock AgentCore in response to triggers from Notion
-- **REQ-AO-002**: The system shall support multiple agent types with distinct capabilities:
-  - **Mock Agent**: Generates clickable HTML/CSS/JS prototypes from user stories, deployed to shareable URLs
-  - **Demo Deck Agent**: Generates Notion-native demo experiences (explanation, prototype embed, structured feedback form)
-  - **Insight Agent**: Synthesizes feedback from multiple Notion databases, cross-references with existing customer data
-  - **Code Agent**: Generates implementation drafts from validated user stories, delivered as GitHub pull requests
-  - **A/B Test Agent** *(backlog)*: Generates 2-3 variant approaches, each with Mock prototype and Demo Deck
-  - **Spec Agent** *(backlog)*: Generates requirements and design specifications from user stories
-  - **Review Agent** *(backlog)*: Reviews generated code against acceptance criteria
-- **REQ-AO-003**: The system shall pass full context (user story, acceptance criteria, related stories, project conventions) to agents at invocation time
-- **REQ-AO-004**: The system shall support configurable agent behavior through project-level settings (coding standards, framework preferences, repository structure)
+- **REQ-AO-001**: The system shall invoke AI agent workloads on Amazon Bedrock AgentCore in response to triggers from Notion, using the Claude Agent SDK as the agent runtime
+- **REQ-AO-002**: The system shall support multiple agent capabilities defined as **Agent Skills** (SKILL.md files):
+  - **Code Generation Skill**: Generates implementation drafts from validated user stories, delivered as GitHub pull requests
+  - **Prototype Generation Skill**: Generates clickable HTML/CSS/JS prototypes from user stories, deployed to shareable URLs
+  - **Demo Deck Skill**: Generates Notion-native demo experiences (explanation, prototype embed, structured feedback form)
+  - **Insight Synthesis Skill**: Synthesizes feedback from multiple Notion databases, cross-references with existing customer data
+  - **A/B Test Skill** *(backlog)*: Generates 2-3 variant approaches, each with prototype and Demo Deck
+  - **Spec Generation Skill** *(backlog)*: Generates requirements and design specifications from user stories
+  - **Code Review Skill** *(backlog)*: Reviews generated code against acceptance criteria
+- **REQ-AO-003**: The system shall pass full context (user story, acceptance criteria, related stories, project conventions) to agents at invocation time via Notion MCP
+- **REQ-AO-004**: The system shall support configurable agent behavior through project-level settings (coding standards, framework preferences, repository structure) and through Agent Skills
 - **REQ-AO-005**: The system shall track agent execution status and make it visible in Notion (queued, running, completed, failed)
-- **REQ-AO-006**: The system shall support agent chaining — output from one agent type can automatically trigger the next (e.g., Spec Agent → Code Agent)
+- **REQ-AO-006**: The system shall support agent chaining — output from one skill invocation can automatically trigger the next (e.g., Prototype → Demo Deck)
 - **REQ-AO-007**: The system shall enforce execution limits (timeout, token budget, cost cap) per agent invocation to prevent runaway costs
+
+### 4.6 Skill Ecosystem
+
+- **REQ-SK-001**: The system shall support Agent Skills defined as SKILL.md files following the Agent Skills open standard
+- **REQ-SK-002**: Developers shall be able to create custom Skills that define agent behavior for specific project needs (coding patterns, framework conventions, output formats)
+- **REQ-SK-003**: The system shall load Skills from the project's `.claude/skills/` directory within the agent runtime container
+- **REQ-SK-004**: The agent runtime shall automatically discover and invoke relevant Skills based on the trigger context and skill descriptions
+- **REQ-SK-005**: The system shall support installing existing Skills from the Claude Code ecosystem (Anthropic official skills, partner skills, community skills)
+- **REQ-SK-006**: Skills shall have access to MCP tools (Notion, GitHub, etc.) configured for the agent runtime
+- **REQ-SK-007**: The system shall support skill versioning — skills are committed to the project repository alongside infrastructure code
 
 ### 4.4 Output & Delivery
 
@@ -299,6 +311,31 @@ Notion serves as the single pane of glass for product decisions, while AWS handl
 - [ ] A decision recommendation is provided (proceed / pivot / need more data)
 - [ ] The synthesis is posted to the user story page
 
+### US-014: Create and Manage Agent Skills
+
+**As a** Developer, **I want to** create custom Agent Skills (SKILL.md files) that define how the agent handles specific tasks for my project, **so that** PMs can trigger reliable, project-specific agent behaviors from Notion without my involvement in each invocation.
+
+**Acceptance Criteria**:
+- [ ] I can create a SKILL.md file with YAML frontmatter (name, description) and Markdown instructions
+- [ ] The skill is automatically discovered by the agent runtime when deployed
+- [ ] I can test the skill locally using Claude Code before deploying
+- [ ] The skill follows our project's coding standards and framework preferences
+- [ ] PMs can trigger the skill from Notion without knowing it exists — the agent selects it based on context
+- [ ] Skills are version-controlled in the project repository
+- [ ] I can install existing skills from the Claude Code ecosystem (Anthropic, partner, or community skills)
+
+### US-015: Leverage Claude Code Built-in Tools
+
+**As a** Development Team Lead, **I want** the agent runtime to include Claude Code's built-in tools (file operations, code execution, web access), **so that** agents can perform complex tasks without custom tool implementations.
+
+**Acceptance Criteria**:
+- [ ] The agent can read, write, and edit files in its working directory
+- [ ] The agent can execute bash commands for build, test, and deployment tasks
+- [ ] The agent can search codebases using glob patterns and regex
+- [ ] The agent can fetch web content for documentation and reference
+- [ ] Tool access is controlled through an allowed-tools configuration per invocation
+- [ ] All tool usage is logged for observability
+
 ## 7. Constraints and Dependencies
 
 ### Constraints
@@ -311,14 +348,16 @@ Notion serves as the single pane of glass for product decisions, while AWS handl
 
 ### Dependencies
 
+- **Claude Agent SDK** (`claude-agent-sdk`): Python/TypeScript library providing the Claude Code runtime as a programmable API — core agent execution engine
+- **Agent Skills**: SKILL.md-based capability definitions following the Agent Skills open standard (`agentskills.io`)
 - **Notion API** (v2024-02+): For reading/writing Notion content and receiving webhooks
-- **Notion MCP**: For agents to extract abundant content from Notion workspaces (on-demand reads for MVP)
-- **Amazon Bedrock**: For Claude model access
-- **Amazon Bedrock AgentCore**: For serverless agent execution
+- **Notion MCP** (`@notionhq/notion-mcp-server`): For agents to extract abundant content from Notion workspaces (on-demand reads for MVP)
+- **Amazon Bedrock**: For Claude model access (via `CLAUDE_CODE_USE_BEDROCK=1`)
+- **Amazon Bedrock AgentCore**: For serverless agent execution (container-based microVM runtime)
 - **Amazon Bedrock Knowledge Bases**: For context storage and retrieval (production scale, Sprint 4+)
 - **AWS Lambda**: For webhook processing and orchestration
-- **S3 + CloudFront**: For prototype hosting (Mock Agent)
-- **GitHub API**: For pull request creation and management
+- **S3 + CloudFront**: For prototype hosting (Prototype Generation Skill)
+- **GitHub MCP** (`@modelcontextprotocol/server-github`): For pull request creation and management via MCP
 - **AWS Secrets Manager**: For credential storage
 
 ## 8. Acceptance Criteria for MVP
