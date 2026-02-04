@@ -1,211 +1,198 @@
-# Agentic Coding Template
+# Notion-AWS Integration for AI-Driven Development Lifecycle
 
-A GitHub template repository for spec-driven, AI-assisted software development. This template provides a structured workflow for working with AI coding agents (Claude Code, Kiro) with built-in guardrails for quality and consistency.
+Turn Notion user stories into working code — without leaving Notion.
 
-## What This Template Provides
+## The Problem
 
-### Specification-Driven Development
-All project decisions flow through a structured `spec/` directory:
-- **requirements.md** - What to build (user personas, features, acceptance criteria)
-- **design.md** - How to build it (architecture, data models, API contracts)
-- **tasks.md** - Sprint-based task tracking with status markers
-- **implementation_qa.md** - Technical Q&A knowledge base from sandbox experiments
-- **proposals/** - Change proposals required before modifying spec files
+Product development teams in AI-driven development workshops face three interconnected problems:
 
-### Change Management via Proposals
-Before changing any spec file, a proposal document must be created in `spec/proposals/`. This ensures:
-- Changes are deliberate, not accidental
-- Alternatives are considered before implementation
-- A historical record of decisions exists
-- Multiple agents/developers stay coordinated
+**Context Fragmentation** — User stories, acceptance criteria, and design decisions created in Notion must be manually transferred to development environments. Each transfer risks losing nuance, relationships between stories, and team discussion context.
 
-### Sandbox Verification Workflow
-The `.sandbox/` directory provides isolated experimentation space:
-1. Document technical questions in `spec/implementation_qa.md`
-2. Create minimal sandbox experiments to verify answers
-3. Document findings before implementing in production
-4. Build a project-specific knowledge base over time
+**Platform Switching Overhead** — Teams context-switch between Notion (collaboration), IDE (development), and git (version control). Each switch requires mental model changes and operational steps that break flow.
 
-### Multi-Agent Support
+**AI Capability Gap** — Notion AI handles text generation well but cannot perform coding, multi-session development, or interact with development tools. Teams must leave Notion to leverage AI coding capabilities, fragmenting their workflow.
 
-| Tool | Configuration | Purpose |
-|------|--------------|---------|
-| **Claude Code** | `CLAUDE.md` + `.claude/skills/` | Primary workflow guidelines, project rules, and reusable skills |
-| **Kiro** | `.kiro/agents/` | Specialized agents (developer, investigator, reviewer) |
-| **VS Code** | `.vscode/settings.json` | Editor configuration |
+## The Solution
 
-## Getting Started
-
-### 1. Create Repository from Template
-
-Click "Use this template" on GitHub, or:
-
-```bash
-gh repo create my-project --template icoxfog417/agentic-coding-template
-cd my-project
-```
-
-### 2. Customize CLAUDE.md
-
-Edit `CLAUDE.md` to add:
-- Your project description in the Project Overview section
-- Project-specific code quality tooling (linter, formatter, pre-commit hooks)
-- Any additional guidelines specific to your tech stack
-
-### 3. Fill In Spec Files
-
-Start with `spec/requirements.md`:
-- Define your user personas
-- List functional requirements with IDs (e.g., `REQ-XX-001`)
-- Add non-functional requirements and user stories
-
-Then `spec/design.md`:
-- Document your architecture (Mermaid diagrams work well)
-- Define your technology stack
-- Describe data models and API contracts
-
-Then `spec/tasks.md`:
-- Organize work into sprints
-- Break features into small, testable tasks
-
-### 4. Configure Your Tools
-
-**For Claude Code users**: `CLAUDE.md` is automatically read. Skills in `.claude/skills/` provide slash commands (`/propose`, `/sprint`, `/kickoff`, `/investigate`). Add project-specific skills for your framework patterns.
-
-**For Kiro users**: Update `.kiro/agents/` with project-specific MCP servers and resource paths.
-
-### 5. Start Development
-
-```bash
-# Create your first proposal (or use /propose in Claude Code)
-touch spec/proposals/$(date +%Y%m%d)_initial_setup.md
-
-# Start sandbox verification for technical unknowns
-mkdir -p .sandbox/my-first-test
-
-# Begin sprint work
-# Update spec/tasks.md as you progress
-```
-
-## Directory Structure
+This project integrates **Notion** with **Amazon Bedrock AgentCore** so that teams can invoke AI agent workloads directly from Notion. Notion becomes the single pane of glass for product decisions. AWS handles computation invisibly behind the scenes.
 
 ```
-.
-├── CLAUDE.md                        # AI agent workflow guidelines (primary)
-├── README.md                        # This file
-├── LICENSE                          # Project license
-├── .gitignore                       # Git ignore rules
-├── .claude/
-│   └── skills/                      # Claude Code reusable skills
-│       ├── propose/                 # /propose - Create change proposals
-│       ├── sprint/                  # /sprint - Sprint analysis & parallel work
-│       ├── kickoff/                 # /kickoff - Work unit onboarding
-│       └── investigate/             # /investigate - Sandbox verification
-├── .kiro/
-│   └── agents/                      # Kiro specialized agents
-│       ├── developer.json           # Feature implementation agent
-│       ├── investigator.json        # Sandbox experimentation agent
-│       └── reviewer.json            # Code review enforcement agent
-├── .vscode/
-│   └── settings.json                # VS Code editor settings
-├── spec/
-│   ├── requirements.md              # User experience and features
-│   ├── design.md                    # Architecture and component design
-│   ├── tasks.md                     # Sprint-based task tracking
-│   ├── implementation_qa.md         # Technical Q&A knowledge base
-│   └── proposals/                   # Change proposal documents
-│       └── .gitkeep
-└── .sandbox/
-    ├── README.md                    # Sandbox guidelines
-    └── .gitkeep                     # Preserve directory in git
+Notion (User Stories & Epics)
+    ↓ Trigger (property change / button)
+AWS Lambda (Webhook Handler)
+    ↓ SQS
+Amazon Bedrock AgentCore
+    ├── Claude (via Amazon Bedrock) → Code Generation
+    ├── Amazon Bedrock Knowledge Bases ← Notion Context
+    └── Results → GitHub PR + Notion Update
 ```
 
-## Claude Code Skills
+The core value proposition: **a Product Owner writes a user story in Notion and gets a pull request with working code, without leaving Notion.**
 
-The template includes four built-in skills for Claude Code:
+## Who This Helps
 
-| Skill | Command | Purpose |
-|-------|---------|---------|
-| **propose** | `/propose add dark mode` | Creates a formatted proposal document and updates spec files |
-| **sprint** | `/sprint` or `/sprint 3` | Analyzes sprint status, maps dependencies, identifies parallel work |
-| **kickoff** | `/kickoff Unit A` | Generates onboarding briefing with context, tasks, and acceptance criteria |
-| **investigate** | `/investigate How to configure OAuth?` | Runs sandbox verification workflow in isolated subagent |
+### Product Owner
 
-### Adding Project-Specific Skills
+> *"I write clear user stories but then have to wait for developers to manually translate them into specs and code. I want to see an MVP faster."*
 
-Create `.claude/skills/{skill-name}/SKILL.md`:
+- Stay entirely in Notion. Write a user story, trigger code generation with 2 clicks.
+- Review AI-generated output as a plain-language summary posted to the Notion page.
+- Mark output as "Approved" or "Needs Changes" with feedback — a new agent run triggers automatically.
+- No IDE, no git, no waiting for a developer to pick up the ticket.
 
-```markdown
----
-name: skill-name
-description: When Claude should use this skill
-argument-hint: [expected arguments]
----
+### Development Team Lead
 
-# Instructions
+> *"I spend too much time translating Notion stories into technical specs and ensuring nothing is lost in translation."*
 
-Your project-specific patterns, templates, and conventions here.
+- The Spec Agent automates the translation from user story to technical specification.
+- Configure project-level constraints (target repo, coding standards, frameworks) once in a Notion config page. Every agent invocation respects those settings.
+- Define multi-step workflows (Story → Spec → Code) where each step is reviewable in Notion before the next runs.
+- Monitor all agent executions, costs, and errors from a dashboard database in Notion.
+
+### Developer
+
+> *"I have to dig through Notion pages to find the full context behind a user story, then manually set up my development environment with that context."*
+
+- Receive GitHub pull requests that already include the original user story, acceptance criteria, and design context.
+- Generated code follows the project's coding standards and repository structure.
+- Focus on high-value review and refinement instead of context gathering and boilerplate.
+
+### Workshop Facilitator
+
+> *"Workshop participants get excited about AI coding but lose momentum when they hit the gap between Notion and their development environment."*
+
+- Pre-configured workshop environment eliminates setup friction.
+- The full flow (write story → trigger agent → review code) completes within 15 minutes.
+- Participants try the flow with their own user stories immediately.
+- Workshop materials include a setup guide for teams to replicate the environment.
+
+## Architecture
+
+```mermaid
+graph TB
+    subgraph Notion["Notion Workspace"]
+        US[User Stories DB]
+        CFG[Project Config Page]
+        DASH[Execution Dashboard DB]
+        FB[Feedback & Comments]
+    end
+
+    subgraph AWS["AWS Cloud"]
+        subgraph Ingestion["Content Ingestion"]
+            WH[Lambda: Webhook Handler]
+            SYNC[Lambda: Content Sync]
+            KB[Bedrock Knowledge Bases]
+        end
+
+        subgraph Orchestration["Agent Orchestration"]
+            ORCH[Lambda: Orchestrator]
+            AC[Bedrock AgentCore]
+            BR[Amazon Bedrock - Claude]
+        end
+
+        subgraph Delivery["Output Delivery"]
+            DEL[Lambda: Delivery Handler]
+            GH[GitHub API]
+            NW[Lambda: Notion Writer]
+        end
+
+        SQS[SQS: Task Queue]
+    end
+
+    US -->|Trigger: property change| WH
+    WH -->|Queue invocation| SQS
+    SQS -->|Process| ORCH
+
+    SYNC -->|Ingest pages| KB
+    US -->|Sync content| SYNC
+    FB -->|Sync feedback| SYNC
+
+    ORCH -->|Invoke agent| AC
+    AC -->|Call model| BR
+    AC -->|Retrieve context| KB
+
+    AC -->|Code output| DEL
+    DEL -->|Create PR| GH
+    DEL -->|Post results| NW
+    NW -->|Update status & summary| DASH
+
+    CFG -->|Read settings| ORCH
 ```
 
-Skills support advanced features:
-- `context: fork` - Run in isolated subagent
-- `allowed-tools: Read, Grep` - Restrict tool access
-- `!`backtick commands`` - Inject dynamic context (e.g., `!git status`)
-- Supporting files in the skill directory (templates, examples, scripts)
+## Customer Journey
 
-See [Claude Code skills documentation](https://docs.anthropic.com/en/docs/claude-code/skills) for details.
+| Phase | Platform | Actor | Activity |
+|-------|----------|-------|----------|
+| 1. Story Creation | Notion | Product Team | Write user stories, epics, acceptance criteria |
+| 2. Context Sync | AWS | System | Ingest Notion content into Knowledge Bases |
+| 3. Agent Invocation | Notion → AWS | Team Lead / PO | Trigger agent workload from Notion |
+| 4. Implementation | AWS (AgentCore) | AI Agent | Generate specs, code, tests using Claude |
+| 5. Delivery | GitHub + Notion | System | Create PR, post summary back to Notion |
+| 6. Review & Feedback | Notion + GitHub | Team | Review outputs, provide feedback |
+| 7. Iteration | Notion → AWS | Team | Refine stories and re-trigger agents |
 
-## Workflow Overview
+## Technology Stack
+
+| Layer | Technology | Purpose |
+|-------|-----------|---------|
+| Collaboration | Notion | User story management, triggers, result display |
+| Webhook Processing | AWS Lambda | Receive and validate Notion triggers |
+| Task Queue | Amazon SQS | Decouple trigger reception from agent execution |
+| Context Storage | Amazon Bedrock Knowledge Bases | Store and retrieve Notion content for agents |
+| Agent Runtime | Amazon Bedrock AgentCore | Serverless execution environment for AI agents |
+| Foundation Model | Amazon Bedrock (Claude) | Code generation, spec generation, review |
+| Code Delivery | GitHub API | Pull request creation and management |
+| Infrastructure | AWS CDK (TypeScript) | Infrastructure as Code |
+
+## Agent Types
+
+The system supports three specialized agents that can be chained into workflows:
+
+- **Spec Agent** — Translates user stories into technical specifications, requirements documents, and task breakdowns.
+- **Code Agent** — Generates implementation code, test files, and PR descriptions from user stories or specs.
+- **Review Agent** — Validates generated code against acceptance criteria and produces review comments.
+
+Predefined workflow templates: `story-to-code`, `story-to-spec-to-code`.
+
+## Project Structure
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                     Development Cycle                        │
-│                                                             │
-│  1. Review specs (requirements.md, design.md, tasks.md)     │
-│              ↓                                              │
-│  2. /propose → Create proposal in spec/proposals/           │
-│              ↓                                              │
-│  3. /investigate → Verify unknowns in .sandbox/             │
-│              ↓                                              │
-│  4. /kickoff → Onboard to work unit with full context       │
-│              ↓                                              │
-│  5. Implement with confidence using verified patterns       │
-│              ↓                                              │
-│  6. /sprint → Track progress, coordinate parallel work      │
-│                                                             │
-└─────────────────────────────────────────────────────────────┘
+notion-code/
+├── spec/                 # Specifications
+│   ├── requirements.md   # User personas, features, acceptance criteria
+│   ├── design.md         # Architecture, data models, API contracts
+│   ├── tasks.md          # Sprint-based task tracking
+│   ├── implementation_qa.md
+│   └── proposals/        # Change proposal documents
+├── infra/                # AWS CDK infrastructure
+│   ├── bin/
+│   ├── lib/
+│   └── config/
+├── src/
+│   ├── webhook/          # Notion webhook handler
+│   ├── sync/             # Content sync to Knowledge Base
+│   ├── orchestrator/     # Agent invocation orchestrator
+│   ├── agents/           # Agent definitions (prompts, tools)
+│   ├── delivery/         # Output delivery (GitHub, Notion)
+│   └── shared/           # Shared utilities, types, config
+├── tests/
+├── .sandbox/             # Sandbox experiments
+└── docs/                 # Workshop and adoption guides
 ```
 
-## Customization Guide
+## Project Status
 
-### Adding MCP Servers
+Currently in **Sprint 0 — Feasibility & Specification**. Core specifications are complete. Next steps include sandbox verification of Notion API webhooks, Bedrock AgentCore invocation patterns, and Knowledge Base ingestion.
 
-For Claude Code, create `.claude/mcp.json`:
-```json
-{
-  "mcpServers": {
-    "server-name": {
-      "command": "command",
-      "args": ["args"]
-    }
-  }
-}
-```
+See [spec/tasks.md](spec/tasks.md) for the full task breakdown.
 
-For Kiro, add to the `mcpServers` field in `.kiro/agents/*.json`.
+## Dependencies
 
-### Extending the Reviewer Agent
-
-Edit `.kiro/agents/reviewer.json` to add project-specific review rules:
-- Add allowed lint/test commands to `toolsSettings.execute_bash.allowedCommands`
-- Add resource paths for files the reviewer should monitor
-
-## Contributing
-
-1. Check `spec/tasks.md` for current priorities
-2. Create a proposal in `spec/proposals/` for significant changes
-3. Follow the guidelines in `CLAUDE.md`
-4. Use sandbox verification for technical unknowns
+- [Notion API](https://developers.notion.com/) (v2024-02+)
+- [Amazon Bedrock](https://aws.amazon.com/bedrock/) (Claude model access)
+- [Amazon Bedrock AgentCore](https://aws.amazon.com/bedrock/agentcore/)
+- [Amazon Bedrock Knowledge Bases](https://aws.amazon.com/bedrock/knowledge-bases/)
+- [GitHub API](https://docs.github.com/en/rest)
 
 ## License
 
