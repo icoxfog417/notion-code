@@ -937,3 +937,127 @@ infra/
 - Infrastructure: CDK diff on PR, CDK deploy on merge to main
 - Separate deployment pipelines per environment
 - AgentCore Runtime versioning enables zero-downtime deployments and instant rollback
+
+## 10. Development Skills Strategy
+
+### 10.1 Overview
+
+The project uses **Claude Skills** (SKILL.md files in `.claude/skills/`) not only for the production agent runtime but also for **development acceleration**. These development skills encode domain expertise, enabling team members and Claude agents to work effectively on specific aspects of the system.
+
+### 10.2 Skill Architecture
+
+Development skills are organized by architectural layer:
+
+```
+.claude/skills/
+├── aws-infrastructure/        # AWS CDK, Lambda, S3, CloudFront, AgentCore deployment
+│   └── SKILL.md
+├── agent-implementation/      # Claude Agent SDK, SKILL.md authoring, MCP config, container
+│   └── SKILL.md
+├── notion-adapter/            # Notion webhooks, Trigger Handler Lambda, Notion API
+│   └── SKILL.md
+├── technical-writer/          # Documentation, Q&A entries, stakeholder materials
+│   └── SKILL.md
+└── project-manager/           # Status tracking, onboarding, sprint coordination
+    └── SKILL.md
+```
+
+### 10.3 Skill Definitions
+
+| Skill | Layer | Expertise | Sprint 0 Tasks |
+|-------|-------|-----------|----------------|
+| **aws-infrastructure** | Infrastructure | CDK, S3/CloudFront, Lambda, DynamoDB, IAM, AgentCore deployment | S3 + CloudFront verification, AgentCore CDK constructs |
+| **agent-implementation** | Agent Runtime | Claude Agent SDK, SKILL.md authoring, `.mcp.json` configuration, container setup, MCP tool testing, latency/cost measurement | SDK on AgentCore, Skills loading, Notion MCP, GitHub MCP, latency/cost |
+| **notion-adapter** | Event Source | Notion webhooks, Trigger Handler Lambda, Notion API, adapter interface | Notion webhook verification |
+| **technical-writer** | Documentation | Q&A format, stakeholder materials, diagrams, synthesis | Document findings, prepare stakeholder review |
+| **project-manager** | Coordination | Status tracking, onboarding, sprint progress, skill discovery | N/A (coordination role) |
+
+### 10.4 Layer Separation
+
+The skill structure mirrors the architectural separation:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    project-manager                          │
+│                 (coordination, onboarding)                  │
+└─────────────────────────────────────────────────────────────┘
+                              │
+         ┌────────────────────┼────────────────────┐
+         ▼                    ▼                    ▼
+┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐
+│ notion-adapter  │  │    agent-       │  │      aws-       │
+│                 │  │ implementation  │  │ infrastructure  │
+│ Event Source    │  │ Agent Runtime   │  │ Infrastructure  │
+│ Layer           │  │ Layer           │  │ Layer           │
+├─────────────────┤  ├─────────────────┤  ├─────────────────┤
+│ • Webhooks      │  │ • Claude SDK    │  │ • CDK stacks    │
+│ • Trigger       │  │ • SKILL.md      │  │ • S3/CloudFront │
+│   Handler       │  │ • .mcp.json     │  │ • Lambda        │
+│ • Notion API    │  │ • Container     │  │ • DynamoDB      │
+│ • Adapter       │  │ • MCP tools     │  │ • IAM roles     │
+│   interface     │  │ • Performance   │  │ • AgentCore     │
+└────────┬────────┘  └────────┬────────┘  └────────┬────────┘
+         │                    │                    │
+         │     Canonical      │                    │
+         │     SQS Message    │                    │
+         └────────────────────┴────────────────────┘
+                              │
+                              ▼
+                   ┌─────────────────┐
+                   │technical-writer │
+                   │                 │
+                   │ • Q&A docs      │
+                   │ • Stakeholder   │
+                   │   materials     │
+                   └─────────────────┘
+```
+
+### 10.5 Sprint 0 Parallelization
+
+The skill structure enables parallel work across team members:
+
+**Wave 1** (no dependencies, can start immediately):
+| Task | Skill | Rationale |
+|------|-------|-----------|
+| SDK on AgentCore | agent-implementation | Core runtime verification |
+| Notion webhook | notion-adapter | Event source verification |
+| S3 + CloudFront | aws-infrastructure | Prototype hosting verification |
+
+**Wave 2** (after SDK working):
+| Task | Skill | Rationale |
+|------|-------|-----------|
+| Notion MCP | agent-implementation | MCP config is in agent container |
+| GitHub MCP | agent-implementation | MCP config is in agent container |
+| Skills loading | agent-implementation | Skills are loaded by SDK |
+
+**Wave 3** (after Wave 2):
+| Task | Skill | Rationale |
+|------|-------|-----------|
+| Latency & cost | agent-implementation | Requires full agent stack working |
+
+**Wave 4** (after Wave 3):
+| Task | Skill | Rationale |
+|------|-------|-----------|
+| Documentation | technical-writer | Requires all verification results |
+| Stakeholder materials | technical-writer | Requires cost measurements |
+
+### 10.6 Key Design Decisions
+
+**Why `agent-implementation` owns MCP configuration:**
+- `.mcp.json` lives inside the agent container
+- MCP tools are tested by invoking the agent
+- MCP server setup requires SDK to be working
+- Single owner for the entire agent runtime stack
+
+**Why `notion-adapter` is separate from `agent-implementation`:**
+- Different deployment target: Lambda vs Container
+- Different dependencies: Notion API vs Claude SDK
+- Different expertise: Webhook security vs AI agent development
+- Enables Wave 1 parallelization (webhook verification has no dependencies)
+
+**Why development skills vs production skills are co-located:**
+- Same SKILL.md format for both
+- Development skills can evolve into production skills
+- Single location for all skill discovery
+- Consistent team workflow
+

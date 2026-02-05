@@ -30,15 +30,15 @@ You help team members understand project status, find relevant context, and iden
 - ✅ Event source abstraction proposal
 
 **Pending Verification** (7 items):
-| Task | Owner | Dependency | Status |
+| Task | Skill | Dependency | Status |
 |------|-------|------------|--------|
-| Claude Agent SDK on AgentCore | Agent Implementation | None | ⬜ TODO |
-| Notion MCP via `.mcp.json` | MCP Integration | SDK working | ⬜ TODO |
-| GitHub MCP via `.mcp.json` | MCP Integration | SDK working | ⬜ TODO |
-| Agent Skills loading | Agent Implementation | SDK working | ⬜ TODO |
-| Notion webhook capabilities | MCP Integration | None | ⬜ TODO |
-| S3 + CloudFront + auto-expiry | AWS Infrastructure | None | ⬜ TODO |
-| Latency and cost measurement | Agent Implementation | All MCP working | ⬜ TODO |
+| Claude Agent SDK on AgentCore | agent-implementation | None | ⬜ TODO |
+| Notion MCP via `.mcp.json` | agent-implementation | SDK working | ⬜ TODO |
+| GitHub MCP via `.mcp.json` | agent-implementation | SDK working | ⬜ TODO |
+| Agent Skills loading | agent-implementation | SDK working | ⬜ TODO |
+| Notion webhook capabilities | notion-adapter | None | ⬜ TODO |
+| S3 + CloudFront + auto-expiry | aws-infrastructure | None | ⬜ TODO |
+| Latency and cost measurement | agent-implementation | All MCP working | ⬜ TODO |
 
 **Pending Documentation** (2 items):
 - ⬜ Document findings in `implementation_qa.md`
@@ -47,29 +47,29 @@ You help team members understand project status, find relevant context, and iden
 ### Parallelization Opportunities
 
 **Wave 1** (can start now, no dependencies):
-- SDK on AgentCore (Agent Implementation)
-- Notion webhook (MCP Integration)
-- S3 + CloudFront (AWS Infrastructure)
+- SDK on AgentCore → `agent-implementation`
+- Notion webhook → `notion-adapter`
+- S3 + CloudFront → `aws-infrastructure`
 
 **Wave 2** (after SDK working):
-- Notion MCP, GitHub MCP (MCP Integration)
-- Skills loading (Agent Implementation)
+- Notion MCP, GitHub MCP → `agent-implementation`
+- Skills loading → `agent-implementation`
 
 **Wave 3** (after Wave 2):
-- Latency & cost measurement (Agent Implementation)
+- Latency & cost measurement → `agent-implementation`
 
 **Wave 4** (after Wave 3):
-- Documentation & stakeholder materials (Technical Writer)
+- Documentation & stakeholder materials → `technical-writer`
 
 ## Available Skills
 
-| Skill | Description | Use When |
-|-------|-------------|----------|
-| `aws-infrastructure` | CDK, S3, CloudFront, Lambda, DynamoDB, AgentCore deployment | Building infrastructure, CDK stacks, IAM policies |
-| `agent-implementation` | Claude Agent SDK, SKILL.md files, container setup, performance | Writing agents, skills, measuring latency/cost |
-| `mcp-integration` | Notion MCP, GitHub MCP, webhook handlers | Configuring MCP servers, testing tools, webhooks |
-| `technical-writer` | Q&A documentation, stakeholder materials, diagrams | Documenting findings, preparing presentations |
-| `project-manager` | Status, onboarding, sprint tracking | Understanding progress, finding what to work on |
+| Skill | Layer | Description | Use When |
+|-------|-------|-------------|----------|
+| `aws-infrastructure` | Infrastructure | CDK, S3, CloudFront, Lambda, DynamoDB, AgentCore deployment | Building infrastructure, CDK stacks, IAM policies |
+| `agent-implementation` | Agent Runtime | Claude Agent SDK, SKILL.md, `.mcp.json`, MCP tool testing, container, performance | Writing agents, skills, MCP config, measuring latency/cost |
+| `notion-adapter` | Event Source | Notion webhooks, Trigger Handler Lambda, Notion API, adapter interface | Implementing webhook handlers, trigger dispatch |
+| `technical-writer` | Documentation | Q&A documentation, stakeholder materials, diagrams | Documenting findings, preparing presentations |
+| `project-manager` | Coordination | Status, onboarding, sprint tracking | Understanding progress, finding what to work on |
 
 ## Key Files
 
