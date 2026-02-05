@@ -1,8 +1,8 @@
 # Design Specification
 
 **Project**: Notion-AWS Integration for AI-Driven Development Lifecycle (AI DLC)
-**Version**: 0.3.0
-**Last Updated**: 2026-02-04
+**Version**: 0.4.0
+**Last Updated**: 2026-02-05
 
 ## 1. Architecture Overview
 
@@ -18,9 +18,10 @@ graph TB
     end
 
     subgraph AWS["AWS Cloud"]
-        subgraph Ingress["Ingress"]
+        subgraph Ingress["Event Source Ingress"]
             APIGW[API Gateway]
-            WH[Lambda: Webhook Handler]
+            TH["Lambda: Trigger Handler"]
+            NA["Notion Adapter"]
         end
 
         SQS[SQS: Task Queue]
@@ -60,8 +61,9 @@ graph TB
 
     %% Ingress flow
     US -->|Property change| APIGW
-    APIGW --> WH
-    WH -->|Queue invocation| SQS
+    APIGW --> TH
+    TH -->|Delegate| NA
+    NA -->|Canonical invocation| SQS
     SQS -->|On max retries| DLQ
 
     %% Orchestration flow
@@ -97,7 +99,7 @@ graph TB
 
     %% Auth & credentials
     IDN -->|OAuth tokens| GW
-    SM -->|API keys| WH
+    SM -->|API keys| TH
     SM -->|Notion token| IDN
 
     %% Observability
@@ -111,7 +113,8 @@ graph TB
 | Layer | Technology | Purpose | Sprint |
 |-------|-----------|---------|--------|
 | Collaboration | Notion | User story management, trigger source, feedback collection | 1 |
-| HTTP Ingress | Amazon API Gateway | HTTPS endpoint for Notion webhooks | 1 |
+| HTTP Ingress | Amazon API Gateway | HTTPS endpoint for event source webhooks | 1 |
+| Event Source Adapter | Lambda (Trigger Handler) | Platform-specific adapter that validates events and produces canonical invocation requests. Notion adapter is the initial implementation. | 1 |
 | Task Queue | Amazon SQS + DLQ | Decouple trigger reception from agent execution | 1 |
 | Agent SDK | Claude Agent SDK (`claude-agent-sdk`) | Claude Code runtime as a library — built-in tools, skills, MCP, session management | 1 |
 | Agent Skills | Agent Skills (SKILL.md) | Skill-based agent behavior configuration following the open standard | 1 |
@@ -135,15 +138,16 @@ graph TB
 ### 1.3 Design Principles
 
 1. **Claude Code Ecosystem**: Agents are powered by the Claude Agent SDK, giving them Claude Code's full tool suite (file ops, code execution, web access) plus the Agent Skills ecosystem for extensible behavior
-2. **Skill-Driven Behavior**: Agent capabilities are defined as SKILL.md files — developers create skills that encode project-specific patterns; PMs trigger them from Notion without technical knowledge
-3. **Event-Driven**: All workflows are triggered by events (Notion property changes, SQS messages, agent completion), not polling
+2. **Skill-Driven Behavior**: Agent capabilities are defined as SKILL.md files — developers create skills that encode project-specific patterns; PMs trigger them from their workspace without technical knowledge
+3. **Event-Driven**: All workflows are triggered by events (property changes, SQS messages, agent completion), not polling
 4. **Serverless-First**: No long-running servers; all compute is on-demand (Lambda, AgentCore Runtime microVMs)
 5. **MCP-Native Tool Access**: External tools (Notion, GitHub, etc.) are connected via MCP servers configured in `.mcp.json` — direct connections for MVP, AgentCore Gateway for production governance
 6. **Thin Orchestration Layer**: Lambda functions handle only queuing, budget checks, and status tracking — agents handle all business logic via Claude Agent SDK
-7. **Decoupled Components**: SQS between webhook handler and orchestrator allows independent scaling and retry
+7. **Decoupled Components**: SQS between trigger handler and orchestrator allows independent scaling and retry
 8. **Idempotent Operations**: All handlers are idempotent; duplicate events produce the same result
 9. **Observable from Day One**: Every component emits structured logs and OpenTelemetry traces to CloudWatch
 10. **Single Runtime, Multiple Skills**: One AgentCore Runtime container serves all agent types — behavior varies by skill selection, not by container image
+11. **Event Source Separation**: The trigger pipeline separates platform-specific event handling (adapter) from platform-agnostic orchestration. Event source adapters produce a canonical invocation format; the orchestrator and agent runtime are unaware of which platform originated the request
 
 ## 2. Data Models
 
@@ -154,8 +158,9 @@ Stored in DynamoDB; status mirrored to the Notion execution dashboard.
 | Field | Type | Description |
 |-------|------|-------------|
 | invocation_id | string (ULID) | Unique identifier for this invocation |
-| notion_page_id | string | Source Notion page that triggered this invocation |
-| workspace_id | string | Notion workspace identifier |
+| source_type | enum | Platform that triggered this invocation: `notion` (extensible) |
+| source_page_id | string | Platform-specific page/entity identifier that triggered this invocation (e.g., Notion page ID) |
+| workspace_id | string | Workspace identifier within the source platform |
 | agent_type | enum | `code`, `mock`, `demo_deck`, `insight`, `spec`, `review`, `a_b_test` |
 | status | enum | `queued`, `running`, `completed`, `failed`, `cancelled` |
 | input_context | object | Serialized user story, acceptance criteria, related page IDs |
@@ -249,13 +254,15 @@ Ingested into Bedrock Knowledge Bases as structured documents. Not used in MVP.
 
 ## 3. API Design
 
-### 3.1 Webhook Endpoint (Notion → AWS)
+### 3.1 Event Source Endpoint
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | POST | /webhook/notion | Receives Notion webhook events for page updates |
 
-**Request Body** (from Notion webhook):
+Event source adapters receive platform-specific webhooks and produce a canonical SQS invocation message. The Notion adapter is the initial implementation.
+
+**Notion Webhook Request Body**:
 ```json
 {
   "type": "page.updated",
@@ -265,9 +272,9 @@ Ingested into Bedrock Knowledge Bases as structured documents. Not used in MVP.
 }
 ```
 
-**Trigger Dispatch Table**:
+**Trigger Dispatch Table** (Notion adapter):
 
-The webhook handler reads the new `Status` property value and maps it to an agent type using the project's `trigger_map` configuration:
+The Notion adapter reads the new `Status` property value and maps it to an agent type using the project's `trigger_map` configuration:
 
 | Trigger Value | Agent Type | Output |
 |--------------|------------|--------|
@@ -278,12 +285,13 @@ The webhook handler reads the new `Status` property value and maps it to an agen
 
 Unrecognized trigger values are ignored (logged at DEBUG level).
 
-**SQS Message Schema** (enqueued by webhook handler):
+**Canonical SQS Message Schema** (produced by any event source adapter):
 ```json
 {
   "invocation_id": "01HQXYZ...",
+  "source_type": "notion",
+  "source_page_id": "abc-123",
   "workspace_id": "ws-456",
-  "notion_page_id": "abc-123",
   "agent_type": "mock",
   "trigger_value": "Generate Prototype",
   "project_id": "proj-789",
@@ -294,6 +302,8 @@ Unrecognized trigger values are ignored (logged at DEBUG level).
   }
 }
 ```
+
+The `source_type` and `source_page_id` fields identify the originating platform and entity. The `page_snapshot` provides a platform-normalized view of the triggering content. All downstream components (orchestrator, agent runtime, completion handler) operate on this canonical format.
 
 ### 3.2 Internal Orchestration API
 
@@ -315,21 +325,44 @@ Unrecognized trigger values are ignored (logged at DEBUG level).
 
 ## 4. Component Design
 
-### 4.1 Webhook Handler (Lambda)
+### 4.1 Trigger Handler (Lambda)
 
-**Purpose**: Receives Notion webhook events via API Gateway, validates them, resolves the target agent type, and queues an invocation.
+**Purpose**: Receives webhook events via API Gateway, delegates to the appropriate event source adapter for validation and parsing, and queues a canonical invocation request.
 
-**Inputs**: Notion webhook POST payload via API Gateway
-**Outputs**: SQS message for orchestrator
+**Inputs**: Webhook POST payload via API Gateway
+**Outputs**: Canonical SQS message for orchestrator
+
+The Trigger Handler uses an **adapter pattern** to separate platform-specific event processing from the shared invocation pipeline. Each adapter handles:
+- Webhook signature validation
+- Event parsing and content extraction
+- Trigger resolution (mapping platform-specific actions to agent types)
+- Page/entity content snapshot
+
+The handler routes to the appropriate adapter based on the API Gateway path (e.g., `/webhook/notion` → Notion adapter).
+
+#### 4.1.1 Notion Adapter (Sprint 1)
 
 **Key Logic**:
-1. Validate webhook signature using the signing secret from Secrets Manager
+1. Validate Notion webhook signature using the signing secret from Secrets Manager
 2. Parse the event and fetch the updated page from Notion API
 3. Read the new `Status` property value
 4. Look up the project's `trigger_map` in DynamoDB to resolve `agent_type`
 5. If no matching trigger, return 200 (acknowledge but no-op)
-6. Snapshot the page content (title, properties, markdown body) into the SQS message
-7. Enqueue invocation message to SQS with a deduplication ID based on `page_id + trigger_value` to ensure idempotency
+6. Snapshot the page content (title, properties, markdown body) into the canonical SQS message format
+7. Set `source_type` to `notion` and `source_page_id` to the Notion page ID
+8. Enqueue invocation message to SQS with a deduplication ID based on `source_page_id + trigger_value` to ensure idempotency
+
+#### 4.1.2 Adapter Interface
+
+All event source adapters implement the same contract:
+
+| Method | Input | Output |
+|--------|-------|--------|
+| `validate(event)` | Raw webhook payload | Boolean (signature valid) |
+| `parse(event)` | Raw webhook payload | `{source_type, source_page_id, workspace_id, trigger_value, page_snapshot}` |
+| `resolve_agent_type(trigger_value, project_config)` | Trigger value + config | `agent_type` or `null` (no-op) |
+
+This contract ensures the orchestrator and all downstream components remain platform-agnostic.
 
 ### 4.2 Orchestrator (Lambda)
 
@@ -362,24 +395,32 @@ Unrecognized trigger values are ignored (logged at DEBUG level).
 
 ### 4.3 Completion Handler (Lambda)
 
-**Purpose**: Processes agent output, updates tracking records, and writes results back to Notion.
+**Purpose**: Processes agent output, updates tracking records, and writes results back to the originating platform.
 
 **Inputs**: Agent execution results (from Orchestrator or AgentCore event)
-**Outputs**: DynamoDB updates, Notion dashboard updates, user notifications
+**Outputs**: DynamoDB updates, platform-specific result delivery, user notifications
+
+The Completion Handler uses the invocation record's `source_type` to determine how to deliver results back to the originating platform. Common logic (DynamoDB updates, cost tracking) is shared; platform-specific delivery is delegated to a result writer.
 
 **Key Logic**:
-1. Parse agent output artifacts (PR URLs, prototype URLs, Notion page IDs, etc.)
+1. Parse agent output artifacts (PR URLs, prototype URLs, page IDs, etc.)
 2. Update invocation record in DynamoDB:
    - Set status to `completed` (or `failed` if agent reported errors)
    - Write `output_artifacts`, `output_summary`, `cost_usd`, `token_usage`
 3. Update project's `month_to_date_cost` in DynamoDB (atomic increment)
-4. Write to Notion execution dashboard:
+4. **Delegate to result writer** based on `source_type`:
+   - Notion writer (Sprint 1): see 4.3.1
+   - Additional writers follow the same pattern
+5. For chained workflows (`agent_chain_template`), enqueue the next step to SQS (e.g., after Mock Agent completes, queue Demo Deck Agent with the prototype URL)
+
+#### 4.3.1 Notion Result Writer
+
+1. Write to Notion execution dashboard:
    - Invocation status, summary, artifact links, cost
-5. Update the originating Notion page:
+2. Update the originating Notion page:
    - Set status to a completion value (e.g., "Code Generated", "Prototype Ready")
    - Add artifact links as page properties or comments
-6. **Notify users**: mention relevant Notion users on the results page to trigger Notion's built-in notification system
-7. For chained workflows (`agent_chain_template`), enqueue the next step to SQS (e.g., after Mock Agent completes, queue Demo Deck Agent with the prototype URL)
+3. **Notify users**: mention relevant Notion users on the results page to trigger Notion's built-in notification system
 
 ### 4.4 MCP Tool Configuration
 
@@ -743,7 +784,7 @@ if __name__ == "__main__":
 
 ### 6.2 Authorization
 
-- **Webhook endpoint**: API Gateway validates Notion webhook signatures
+- **Event source endpoints**: API Gateway routes to platform-specific adapters; each adapter validates webhook signatures (e.g., Notion adapter validates Notion webhook signatures)
 - **Lambda IAM roles**: Scoped per function (e.g., orchestrator can invoke AgentCore but cannot write to S3 directly)
 - **AgentCore Runtime**: microVM isolation ensures agents cannot access other sessions
 - **Claude Agent SDK**: `allowed_tools` configuration restricts which tools the agent can use per invocation
@@ -789,14 +830,14 @@ All internal APIs return errors in a consistent format:
 
 | Code | Component | Description |
 |------|-----------|-------------|
-| `INVALID_WEBHOOK` | Webhook Handler | Webhook signature validation failed |
-| `UNKNOWN_TRIGGER` | Webhook Handler | Status value does not match any trigger in trigger_map |
+| `INVALID_WEBHOOK` | Trigger Handler | Webhook signature validation failed |
+| `UNKNOWN_TRIGGER` | Trigger Handler | Status value does not match any trigger in trigger_map |
 | `BUDGET_EXCEEDED` | Orchestrator | Monthly or per-invocation cost limit reached |
 | `AGENT_TIMEOUT` | Orchestrator | Agent execution exceeded session timeout |
 | `AGENT_ERROR` | AgentCore Runtime | Agent encountered an unrecoverable error |
 | `TOOL_AUTH_FAILED` | Gateway | OAuth token expired or insufficient permissions |
 | `TOOL_RATE_LIMITED` | Gateway | External API rate limit hit (Notion, GitHub) |
-| `DELIVERY_FAILED` | Completion Handler | Failed to write results to Notion or update dashboard |
+| `DELIVERY_FAILED` | Completion Handler | Failed to write results back to the originating platform |
 | `CHAIN_FAILED` | Completion Handler | Failed to enqueue the next step in a chained workflow |
 
 ### 7.3 Retry Strategies
@@ -862,7 +903,7 @@ infra/
 ├── bin/
 │   └── app.ts                       # CDK app entry point
 ├── lib/
-│   ├── ingress-stack.ts             # API Gateway + Webhook Handler Lambda
+│   ├── ingress-stack.ts             # API Gateway + Trigger Handler Lambda (event source adapters)
 │   ├── orchestration-stack.ts       # Orchestrator Lambda + SQS + DLQ + DynamoDB
 │   ├── agentcore-stack.ts           # Single AgentCore Runtime (Claude Agent SDK + Skills) + ECR
 │   ├── prototype-hosting-stack.ts   # S3 bucket + CloudFront + lifecycle rules
@@ -896,3 +937,127 @@ infra/
 - Infrastructure: CDK diff on PR, CDK deploy on merge to main
 - Separate deployment pipelines per environment
 - AgentCore Runtime versioning enables zero-downtime deployments and instant rollback
+
+## 10. Development Skills Strategy
+
+### 10.1 Overview
+
+The project uses **Claude Skills** (SKILL.md files in `.claude/skills/`) not only for the production agent runtime but also for **development acceleration**. These development skills encode domain expertise, enabling team members and Claude agents to work effectively on specific aspects of the system.
+
+### 10.2 Skill Architecture
+
+Development skills are organized by architectural layer:
+
+```
+.claude/skills/
+├── aws-infrastructure/        # AWS CDK, Lambda, S3, CloudFront, AgentCore deployment
+│   └── SKILL.md
+├── agent-implementation/      # Claude Agent SDK, SKILL.md authoring, MCP config, container
+│   └── SKILL.md
+├── notion-adapter/            # Notion webhooks, Trigger Handler Lambda, Notion API
+│   └── SKILL.md
+├── technical-writer/          # Documentation, Q&A entries, stakeholder materials
+│   └── SKILL.md
+└── project-manager/           # Status tracking, onboarding, sprint coordination
+    └── SKILL.md
+```
+
+### 10.3 Skill Definitions
+
+| Skill | Layer | Expertise | Sprint 0 Tasks |
+|-------|-------|-----------|----------------|
+| **aws-infrastructure** | Infrastructure | CDK, S3/CloudFront, Lambda, DynamoDB, IAM, AgentCore deployment | S3 + CloudFront verification, AgentCore CDK constructs |
+| **agent-implementation** | Agent Runtime | Claude Agent SDK, SKILL.md authoring, `.mcp.json` configuration, container setup, MCP tool testing, latency/cost measurement | SDK on AgentCore, Skills loading, Notion MCP, GitHub MCP, latency/cost |
+| **notion-adapter** | Event Source | Notion webhooks, Trigger Handler Lambda, Notion API, adapter interface | Notion webhook verification |
+| **technical-writer** | Documentation | Q&A format, stakeholder materials, diagrams, synthesis | Document findings, prepare stakeholder review |
+| **project-manager** | Coordination | Status tracking, onboarding, sprint progress, skill discovery | N/A (coordination role) |
+
+### 10.4 Layer Separation
+
+The skill structure mirrors the architectural separation:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    project-manager                          │
+│                 (coordination, onboarding)                  │
+└─────────────────────────────────────────────────────────────┘
+                              │
+         ┌────────────────────┼────────────────────┐
+         ▼                    ▼                    ▼
+┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐
+│ notion-adapter  │  │    agent-       │  │      aws-       │
+│                 │  │ implementation  │  │ infrastructure  │
+│ Event Source    │  │ Agent Runtime   │  │ Infrastructure  │
+│ Layer           │  │ Layer           │  │ Layer           │
+├─────────────────┤  ├─────────────────┤  ├─────────────────┤
+│ • Webhooks      │  │ • Claude SDK    │  │ • CDK stacks    │
+│ • Trigger       │  │ • SKILL.md      │  │ • S3/CloudFront │
+│   Handler       │  │ • .mcp.json     │  │ • Lambda        │
+│ • Notion API    │  │ • Container     │  │ • DynamoDB      │
+│ • Adapter       │  │ • MCP tools     │  │ • IAM roles     │
+│   interface     │  │ • Performance   │  │ • AgentCore     │
+└────────┬────────┘  └────────┬────────┘  └────────┬────────┘
+         │                    │                    │
+         │     Canonical      │                    │
+         │     SQS Message    │                    │
+         └────────────────────┴────────────────────┘
+                              │
+                              ▼
+                   ┌─────────────────┐
+                   │technical-writer │
+                   │                 │
+                   │ • Q&A docs      │
+                   │ • Stakeholder   │
+                   │   materials     │
+                   └─────────────────┘
+```
+
+### 10.5 Sprint 0 Parallelization
+
+The skill structure enables parallel work across team members:
+
+**Wave 1** (no dependencies, can start immediately):
+| Task | Skill | Rationale |
+|------|-------|-----------|
+| SDK on AgentCore | agent-implementation | Core runtime verification |
+| Notion webhook | notion-adapter | Event source verification |
+| S3 + CloudFront | aws-infrastructure | Prototype hosting verification |
+
+**Wave 2** (after SDK working):
+| Task | Skill | Rationale |
+|------|-------|-----------|
+| Notion MCP | agent-implementation | MCP config is in agent container |
+| GitHub MCP | agent-implementation | MCP config is in agent container |
+| Skills loading | agent-implementation | Skills are loaded by SDK |
+
+**Wave 3** (after Wave 2):
+| Task | Skill | Rationale |
+|------|-------|-----------|
+| Latency & cost | agent-implementation | Requires full agent stack working |
+
+**Wave 4** (after Wave 3):
+| Task | Skill | Rationale |
+|------|-------|-----------|
+| Documentation | technical-writer | Requires all verification results |
+| Stakeholder materials | technical-writer | Requires cost measurements |
+
+### 10.6 Key Design Decisions
+
+**Why `agent-implementation` owns MCP configuration:**
+- `.mcp.json` lives inside the agent container
+- MCP tools are tested by invoking the agent
+- MCP server setup requires SDK to be working
+- Single owner for the entire agent runtime stack
+
+**Why `notion-adapter` is separate from `agent-implementation`:**
+- Different deployment target: Lambda vs Container
+- Different dependencies: Notion API vs Claude SDK
+- Different expertise: Webhook security vs AI agent development
+- Enables Wave 1 parallelization (webhook verification has no dependencies)
+
+**Why development skills vs production skills are co-located:**
+- Same SKILL.md format for both
+- Development skills can evolve into production skills
+- Single location for all skill discovery
+- Consistent team workflow
+

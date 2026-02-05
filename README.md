@@ -29,7 +29,7 @@ This project lets PMs **invoke AI agents directly from Notion** to run the entir
 ```
 PM writes user story in Notion
     ↓ Trigger (2 clicks)
-AWS (Lambda → SQS → Bedrock AgentCore → Claude Agent SDK)
+AWS (Event Source Adapter → SQS → Bedrock AgentCore → Claude Agent SDK)
     ├── Mock Agent      → Clickable prototype at a shareable URL
     ├── Demo Deck Agent → Notion page: explanation + demo + feedback form
     ├── Insight Agent   → Synthesis of feedback + existing customer data
@@ -38,7 +38,7 @@ AWS (Lambda → SQS → Bedrock AgentCore → Claude Agent SDK)
 
 **Fundamental value**: Accelerate product discovery to generate promising user stories, then pass validated stories to developers.
 
-**Fundamental implementation**: A single agent runtime powered by the [Claude Agent SDK](https://docs.anthropic.com/en/docs/agents-and-tools/claude-agent-sdk), hosted on [Amazon Bedrock AgentCore](https://aws.amazon.com/bedrock/agentcore/). Agent behavior is driven by **[Agent Skills](https://agentskills.io)** (SKILL.md files) — developers create skills, PMs trigger them from Notion. Agents use [Notion MCP](https://developers.notion.com/docs/mcp) to extract abundant content from the workspace.
+**Fundamental implementation**: A single agent runtime powered by the [Claude Agent SDK](https://docs.anthropic.com/en/docs/agents-and-tools/claude-agent-sdk), hosted on [Amazon Bedrock AgentCore](https://aws.amazon.com/bedrock/agentcore/). Agent behavior is driven by **[Agent Skills](https://agentskills.io)** (SKILL.md files) — developers create skills, PMs trigger them from their workspace. The trigger pipeline uses an event source adapter pattern, with Notion as the launch platform. Agents use [Notion MCP](https://developers.notion.com/docs/mcp) to extract abundant content from the workspace.
 
 ## The Discovery Loop
 
@@ -149,7 +149,8 @@ graph TB
 
     subgraph AWS["AWS Cloud"]
         APIGW[API Gateway]
-        WH[Lambda: Webhook Handler]
+        TH["Lambda: Trigger Handler"]
+        NA["Notion Adapter"]
         SQS[SQS: Task Queue]
         ORCH[Lambda: Orchestrator]
         DDB[(DynamoDB)]
@@ -173,9 +174,10 @@ graph TB
     GITHUB_MCP[GitHub MCP Server]
 
     US -->|Trigger| APIGW
-    APIGW --> WH
-    WH --> SQS
-    WH -->|Read config| DDB
+    APIGW --> TH
+    TH -->|Delegate| NA
+    NA --> SQS
+    NA -->|Read config| DDB
     SQS --> ORCH
     ORCH -->|Track invocation| DDB
     ORCH -->|Invoke| SDK
@@ -204,8 +206,8 @@ graph TB
 | Agent Behavior | [Agent Skills](https://agentskills.io) (SKILL.md) | Open standard for agent behavior configuration |
 | Agent Hosting | [Amazon Bedrock AgentCore](https://aws.amazon.com/bedrock/agentcore/) | Serverless microVM execution |
 | Foundation Model | Amazon Bedrock (Claude) | All agent intelligence (`CLAUDE_CODE_USE_BEDROCK=1`) |
-| Webhook Endpoint | API Gateway + AWS Lambda | Receive and validate Notion triggers |
-| Task Queue | Amazon SQS | Decouple trigger reception from agent execution |
+| Event Source Ingress | API Gateway + AWS Lambda | Trigger handler with platform-specific adapters (Notion adapter for launch) |
+| Task Queue | Amazon SQS | Decouple event source adapters from agent execution |
 | Invocation Tracking | Amazon DynamoDB | Invocation records, project config, cost tracking |
 | Prototype Hosting | S3 + CloudFront | Shareable URLs with auto-expiry for Mock Agent prototypes |
 | MCP Gateway *(Sprint 3+)* | AgentCore Gateway | Centralized MCP endpoint with auth, policy, and observability |

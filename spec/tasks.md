@@ -1,7 +1,7 @@
 # Implementation Tasks
 
 **Project**: Notion-AWS Integration for AI-Driven Development Lifecycle (AI DLC)
-**Last Updated**: 2026-02-04
+**Last Updated**: 2026-02-05
 **Status**: Sprint 0 - Feasibility & Foundation
 
 ## Task Status Legend
@@ -23,6 +23,7 @@
 - Prioritize what Notion MCP cannot provide (see spec/proposals/20260204_notion_mcp_competitive_analysis.md)
 - Prioritize product discovery acceleration (see spec/proposals/20260204_product_discovery_acceleration.md)
 - Build on the Claude Code ecosystem — Claude Agent SDK + Skills + MCP (see spec/proposals/20260204_claude_code_ecosystem_design.md)
+- Use event source adapter pattern: platform-specific adapters produce canonical invocation format (see spec/proposals/20260205_event_source_abstraction.md)
 
 ## Sprint 0: Feasibility & Specification
 
@@ -61,11 +62,13 @@
 ### Shared Pipeline Tasks
 
 - ⬜ Set up AWS CDK project structure with dev environment
-- ⬜ Implement Notion webhook handler Lambda (receive + validate triggers, dispatch by agent type)
-- ⬜ Set up SQS queue for invocation requests
+- ⬜ Implement Trigger Handler Lambda with adapter pattern (route to platform-specific adapter, produce canonical SQS message)
+- ⬜ Implement Notion adapter (validate Notion webhook signature, parse event, resolve agent type, snapshot page content)
+- ⬜ Set up SQS queue for canonical invocation requests
 - ⬜ Implement Orchestrator Lambda (dequeue → assemble prompt with trigger context → invoke AgentCore Runtime)
-- ⬜ Set up DynamoDB table for invocation tracking
-- ⬜ Implement Completion Handler Lambda (parse agent output → update DynamoDB → post results to Notion)
+- ⬜ Set up DynamoDB table for invocation tracking (include `source_type` and `source_page_id` fields)
+- ⬜ Implement Completion Handler Lambda with result writer pattern (parse agent output → update DynamoDB → delegate to platform-specific result writer)
+- ⬜ Implement Notion result writer (update Notion dashboard, update originating page, notify users)
 - ⬜ Set up CloudWatch logging and basic alarms
 
 ### Agent Runtime Tasks (Claude Agent SDK)
@@ -195,6 +198,7 @@ Items not yet scheduled for a sprint:
 - ⬜ Skill marketplace/registry: catalog of available skills per project with Notion-based management
 - ⬜ Install Notion official skills for Claude (partner skills from Notion)
 - ⬜ Integration with additional code hosting platforms (GitLab, CodeCommit) via MCP servers
+- ⬜ Additional event source adapters for workspace tools beyond Notion (implement adapter interface, platform-specific MCP servers, result writers)
 - ⬜ Notion sidebar app for inline agent interaction
 - ⬜ Automated acceptance testing of generated code
 - ⬜ Multi-language support for generated code (beyond initial target language)
@@ -205,6 +209,16 @@ Items not yet scheduled for a sprint:
 ## Reference
 
 ### Sprint Assignment History
+
+#### 2026-02-05: Event Source Abstraction (proposal: 20260205_event_source_abstraction.md)
+
+| Change | Before | After | Reason |
+|--------|--------|-------|--------|
+| Webhook Handler | Notion-specific Lambda | Trigger Handler with adapter pattern | Separates platform-specific event handling from orchestration |
+| Data Model | `notion_page_id` field | `source_type` + `source_page_id` fields | Platform-agnostic invocation tracking |
+| Completion Handler | Direct Notion writes | Result writer pattern (delegates by `source_type`) | Separates platform-specific result delivery from shared logic |
+| SQS Message | Notion-specific format | Canonical invocation format with `source_type` | Platform-agnostic contract between adapters and orchestrator |
+| Requirements | No extensibility section | Section 5.7 Extensibility (REQ-NF-060 through REQ-NF-064) | Formalize platform separation as a requirement |
 
 #### 2026-02-04: Claude Code Ecosystem Design (proposal: 20260204_claude_code_ecosystem_design.md)
 
@@ -264,8 +278,8 @@ All skills run on a single AgentCore Runtime powered by the Claude Agent SDK. Be
 | Agent Skills (SKILL.md) | Agent behavior configuration | 1 |
 | Notion MCP (`@notionhq/notion-mcp-server`) | Notion workspace access via MCP | 1 |
 | GitHub MCP (`@modelcontextprotocol/server-github`) | GitHub operations via MCP | 1 |
-| API Gateway | Notion webhook endpoint | 1 |
-| Lambda | Webhook handler, orchestrator, completion handler | 1 |
+| API Gateway | Event source webhook endpoint | 1 |
+| Lambda | Trigger handler (with adapters), orchestrator, completion handler (with result writers) | 1 |
 | SQS | Invocation queue with DLQ | 1 |
 | DynamoDB | Invocation records, project config | 1-3 |
 | Bedrock AgentCore Runtime | Serverless microVM execution (hosts Claude Agent SDK) | 1 |
