@@ -1,8 +1,8 @@
 # Requirements Specification
 
 **Project**: Notion-AWS Integration for AI-Driven Development Lifecycle (AI DLC)
-**Version**: 0.3.0
-**Last Updated**: 2026-02-04
+**Version**: 0.4.0
+**Last Updated**: 2026-02-05
 
 ## 1. Overview
 
@@ -10,7 +10,7 @@ This project integrates Notion with Amazon Bedrock AgentCore to enable product d
 
 **Fundamental value**: Accelerate product discovery to generate promising user stories, then pass validated stories to developers for implementation.
 
-**Fundamental implementation**: "Invoke Agent from Notion" — a secure and scalable infrastructure on AWS that lets any Notion action trigger AI agents powered by the **Claude Agent SDK** on **Amazon Bedrock AgentCore**. Agents leverage Notion MCP to extract abundant content from the workspace, and use **Agent Skills** to define specialized behaviors.
+**Fundamental implementation**: "Invoke Agent from Workspace" — a secure and scalable infrastructure on AWS that lets workspace actions trigger AI agents powered by the **Claude Agent SDK** on **Amazon Bedrock AgentCore**. Notion is the launch platform, with the trigger pipeline designed as an event source adapter pattern that cleanly separates platform-specific event handling from agent orchestration. Agents leverage MCP servers to extract content from connected workspaces, and use **Agent Skills** to define specialized behaviors.
 
 The system supports two categories of agents:
 
@@ -90,7 +90,7 @@ Notion serves as the single pane of glass for product decisions, while AWS handl
 ### 4.1 Notion Integration
 
 - **REQ-NI-001**: The system shall read user stories, epics, and acceptance criteria from designated Notion databases via the Notion API
-- **REQ-NI-002**: The system shall support triggering agent workloads from Notion through a defined mechanism (e.g., Notion button, database property change, or slash command integration)
+- **REQ-NI-002**: The system shall support triggering agent workloads from Notion through a defined mechanism (e.g., Notion button, database property change, or slash command integration) via an event source adapter that produces a canonical invocation format
 - **REQ-NI-003**: The system shall write agent execution results (status, outputs, links) back to the originating Notion page or a designated results database
 - **REQ-NI-004**: The system shall preserve the hierarchical relationships between epics, user stories, and tasks when ingesting Notion content
 - **REQ-NI-005**: The system shall support incremental content sync — only changed Notion pages trigger re-ingestion, not full re-sync
@@ -188,6 +188,14 @@ Notion serves as the single pane of glass for product decisions, while AWS handl
 - **REQ-NF-050**: The system shall use serverless components (Lambda, AgentCore) to minimize idle costs
 - **REQ-NF-051**: The system shall provide cost visibility per agent invocation, reportable by project and story
 - **REQ-NF-052**: The system shall support configurable spending limits per project/workspace to prevent unexpected charges
+
+### 5.7 Extensibility
+
+- **REQ-NF-060**: The trigger pipeline shall use an event source adapter pattern, separating platform-specific webhook handling from platform-agnostic agent orchestration
+- **REQ-NF-061**: The canonical invocation format (SQS message schema) shall include a `source_type` field to identify the originating platform, and a `source_page_id` for the platform-specific entity identifier
+- **REQ-NF-062**: Agent Skills (SKILL.md files) shall be platform-agnostic — skills define agent behavior in terms of inputs, tools, and outputs, not in terms of a specific trigger platform
+- **REQ-NF-063**: The completion handler shall use `source_type` to route result delivery to the appropriate platform-specific writer
+- **REQ-NF-064**: MCP tool configuration (`.mcp.json`) shall be the sole platform-coupling point within the agent runtime, enabling different workspace tool connections without changing skill definitions
 
 ## 6. User Stories
 
